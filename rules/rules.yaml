@@ -1,0 +1,346 @@
+rules:
+  - id: client-side-role-check
+    patterns:
+      - pattern-either:
+          - pattern: |
+              if ($USER.role === $ROLE) { ... }
+          - pattern: |
+              if ($USER.role == $ROLE) { ... }
+          - pattern: |
+              $USER.role === $ROLE ? ... : ...
+          - pattern: |
+              $USER.role == $ROLE ? ... : ...
+          - pattern: |
+              if ($USER['role'] === $ROLE) { ... }
+          - pattern: |
+              if ($USER['role'] == $ROLE) { ... }
+    message: |
+      Client-side role check detected. Access control should never be implemented solely on the client-side 
+      as it can be bypassed by attackers. Move authorization logic to the server-side.
+    languages: [javascript, typescript]
+    severity: HIGH
+    metadata:
+      category: security
+      cwe: "CWE-285: Improper Authorization"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: HIGH
+      likelihood: HIGH
+      impact: HIGH
+      technology:
+        - javascript
+        - typescript
+      subcategory:
+        - vuln
+      references:
+        - https://owasp.org/Top10/A01_2021-Broken_Access_Control/
+
+  - id: unprotected-admin-routes
+    patterns:
+      - pattern-either:
+          - pattern: |
+              app.get('/admin/...', ...)
+          - pattern: |
+              app.post('/admin/...', ...)
+          - pattern: |
+              app.put('/admin/...', ...)
+          - pattern: |
+              app.delete('/admin/...', ...)
+          - pattern: |
+              app.patch('/admin/...', ...)
+          - pattern: |
+              router.get('/admin/...', ...)
+          - pattern: |
+              router.post('/admin/...', ...)
+          - pattern: |
+              router.put('/admin/...', ...)
+          - pattern: |
+              router.delete('/admin/...', ...)
+          - pattern: |
+              router.patch('/admin/...', ...)
+    pattern-not-inside:
+      - pattern: |
+          app.$METHOD('/admin/...', $AUTH, ...)
+      - pattern: |
+          router.$METHOD('/admin/...', $AUTH, ...)
+    pattern-not:
+      - pattern: |
+          app.$METHOD('/admin/...', isAuthenticated, ...)
+      - pattern: |
+          app.$METHOD('/admin/...', checkRole, ...)
+      - pattern: |
+          app.$METHOD('/admin/...', verifyToken, ...)
+      - pattern: |
+          app.$METHOD('/admin/...', requireAdmin, ...)
+    message: |
+      Unprotected admin route detected. Admin routes should always include authentication 
+      and authorization middleware to prevent unauthorized access.
+    languages: [javascript, typescript]
+    severity: CRITICAL
+    metadata:
+      category: security
+      cwe: "CWE-862: Missing Authorization"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: HIGH
+      likelihood: HIGH
+      impact: CRITICAL
+      technology:
+        - express
+        - nodejs
+      subcategory:
+        - vuln
+
+  - id: missing-auth-middleware
+    patterns:
+      - pattern-either:
+          - pattern: |
+              app.get('/api/...', ($REQ, $RES) => { ... })
+          - pattern: |
+              app.post('/api/...', ($REQ, $RES) => { ... })
+          - pattern: |
+              app.put('/api/...', ($REQ, $RES) => { ... })
+          - pattern: |
+              app.delete('/api/...', ($REQ, $RES) => { ... })
+          - pattern: |
+              router.get('/api/...', ($REQ, $RES) => { ... })
+          - pattern: |
+              router.post('/api/...', ($REQ, $RES) => { ... })
+          - pattern: |
+              router.put('/api/...', ($REQ, $RES) => { ... })
+          - pattern: |
+              router.delete('/api/...', ($REQ, $RES) => { ... })
+    pattern-not:
+      - pattern: |
+          app.$METHOD('/api/...', isAuthenticated, ...)
+      - pattern: |
+          app.$METHOD('/api/...', checkRole, ...)
+      - pattern: |
+          app.$METHOD('/api/...', verifyToken, ...)
+      - pattern: |
+          app.$METHOD('/api/...', authenticate, ...)
+    message: |
+      API endpoint missing authentication middleware. Sensitive API endpoints should include 
+      proper authentication checks to prevent unauthorized access.
+    languages: [javascript, typescript]
+    severity: HIGH
+    metadata:
+      category: security
+      cwe: "CWE-862: Missing Authorization"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      likelihood: HIGH
+      impact: HIGH
+
+  - id: insecure-direct-object-reference
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $MODEL.findById(req.params.$ID)
+          - pattern: |
+              $MODEL.findOne({id: req.params.$ID})
+          - pattern: |
+              $MODEL.findOne({_id: req.params.$ID})
+          - pattern: |
+              $DB.query('... WHERE id = ' + req.params.$ID)
+          - pattern: |
+              $DB.query(`... WHERE id = ${req.params.$ID}`)
+          - pattern: |
+              deleteUser(req.params.userId)
+          - pattern: |
+              getUser(req.params.id)
+          - pattern: |
+              updateUser(req.params.userId, ...)
+    pattern-not-inside:
+      - pattern: |
+          if (req.user.id === req.params.$ID) { ... }
+      - pattern: |
+          if (checkOwnership(...)) { ... }
+      - pattern: |
+          if (verifyOwnership(...)) { ... }
+      - pattern: |
+          if (isOwner(...)) { ... }
+    message: |
+      Potential Insecure Direct Object Reference (IDOR). Direct use of user-controlled input 
+      to access resources without ownership verification can allow unauthorized access to other users' data.
+    languages: [javascript, typescript]
+    severity: HIGH
+    metadata:
+      category: security
+      cwe: "CWE-639: Authorization Bypass Through User-Controlled Key"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      likelihood: HIGH
+      impact: HIGH
+
+  - id: path-traversal-vulnerability
+    patterns:
+      - pattern-either:
+          - pattern: |
+              fs.readFile(req.query.$PATH, ...)
+          - pattern: |
+              fs.readFileSync(req.query.$PATH)
+          - pattern: |
+              fs.readFile(req.params.$PATH, ...)
+          - pattern: |
+              fs.readFileSync(req.params.$PATH)
+          - pattern: |
+              res.sendFile(req.query.$PATH)
+          - pattern: |
+              res.sendFile(req.params.$PATH)
+          - pattern: |
+              path.join($DIR, req.query.$PATH)
+          - pattern: |
+              path.join($DIR, req.params.$PATH)
+    pattern-not-inside:
+      - pattern: |
+          if (isValidPath(...)) { ... }
+      - pattern: |
+          if (sanitizePath(...)) { ... }
+      - pattern: |
+          path.normalize(...)
+    message: |
+      Path traversal vulnerability detected. User-controlled file paths can allow attackers 
+      to access files outside the intended directory using '../' sequences.
+    languages: [javascript, typescript]
+    severity: HIGH
+    metadata:
+      category: security
+      cwe: "CWE-22: Improper Limitation of a Pathname to a Restricted Directory"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: HIGH
+      likelihood: MEDIUM
+      impact: HIGH
+
+  - id: unrestricted-cors
+    patterns:
+      - pattern-either:
+          - pattern: |
+              app.use(cors())
+          - pattern: |
+              cors({origin: '*'})
+          - pattern: |
+              cors({origin: true})
+          - pattern: |
+              res.header('Access-Control-Allow-Origin', '*')
+          - pattern: |
+              res.setHeader('Access-Control-Allow-Origin', '*')
+    message: |
+      Unrestricted CORS configuration detected. Allowing all origins (*) can expose your API 
+      to cross-origin attacks. Specify specific allowed origins instead.
+    languages: [javascript, typescript]
+    severity: MEDIUM
+    metadata:
+      category: security
+      cwe: "CWE-942: Permissive Cross-domain Policy with Untrusted Domains"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: HIGH
+      likelihood: MEDIUM
+      impact: MEDIUM
+
+  - id: client-side-admin-links
+    patterns:
+      - pattern-either:
+          - pattern: |
+              <a href="/admin/...">...</a>
+          - pattern: |
+              <button onclick="location.href='/admin/...'">...</button>
+          - pattern: |
+              window.location.href = '/admin/...'
+          - pattern: |
+              navigate('/admin/...')
+          - pattern: |
+              router.push('/admin/...')
+    pattern-not-inside:
+      - pattern: |
+          if (user.role === 'admin') { ... }
+      - pattern: |
+          if (isAdmin) { ... }
+      - pattern: |
+          {user.role === 'admin' && ...}
+    message: |
+      Admin link exposed without proper role check. Admin functionality should only be 
+      accessible to authorized users with proper server-side validation.
+    languages: [javascript, typescript]
+    severity: MEDIUM
+    metadata:
+      category: security
+      cwe: "CWE-200: Exposure of Sensitive Information to an Unauthorized Actor"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      likelihood: MEDIUM
+      impact: MEDIUM
+
+  - id: weak-jwt-implementation
+    patterns:
+      - pattern-either:
+          - pattern: |
+              jwt.sign($PAYLOAD, null, ...)
+          - pattern: |
+              jwt.sign($PAYLOAD, '', ...)
+          - pattern: |
+              jwt.sign($PAYLOAD, $SECRET, {algorithm: 'none'})
+          - pattern: |
+              jwt.verify($TOKEN, null)
+          - pattern: |
+              jwt.verify($TOKEN, '')
+          - pattern: |
+              jwt.decode($TOKEN, {verify: false})
+    message: |
+      Weak JWT implementation detected. JWTs should use strong secrets and proper algorithms. 
+      Never use 'none' algorithm or empty secrets in production.
+    languages: [javascript, typescript]
+    severity: HIGH
+    metadata:
+      category: security
+      cwe: "CWE-327: Use of a Broken or Risky Cryptographic Algorithm"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: HIGH
+      likelihood: MEDIUM
+      impact: HIGH
+
+  - id: missing-jwt-expiry
+    patterns:
+      - pattern: |
+          jwt.sign($PAYLOAD, $SECRET)
+      - pattern: |
+          jwt.sign($PAYLOAD, $SECRET, {})
+    pattern-not:
+      - pattern: |
+          jwt.sign($PAYLOAD, $SECRET, {expiresIn: ...})
+      - pattern: |
+          jwt.sign($PAYLOAD, $SECRET, {..., expiresIn: ...})
+    message: |
+      JWT without expiration time detected. JWTs should include an expiration time (expiresIn) 
+      to limit the token's validity period and reduce security risks.
+    languages: [javascript, typescript]
+    severity: MEDIUM
+    metadata:
+      category: security
+      cwe: "CWE-613: Insufficient Session Expiration"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: MEDIUM
+      likelihood: MEDIUM
+      impact: MEDIUM
+
+  - id: direct-database-query-injection
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $DB.query('SELECT * FROM users WHERE id = ' + $INPUT)
+          - pattern: |
+              $DB.query(`SELECT * FROM users WHERE id = ${$INPUT}`)
+          - pattern: |
+              $DB.raw('... WHERE ... = ' + $INPUT)
+          - pattern: |
+              $DB.raw(`... WHERE ... = ${$INPUT}`)
+    message: |
+      SQL injection vulnerability in database query. User input should be parameterized 
+      to prevent SQL injection attacks that could lead to unauthorized data access.
+    languages: [javascript, typescript]
+    severity: CRITICAL
+    metadata:
+      category: security
+      cwe: "CWE-89: Improper Neutralization of Special Elements used in an SQL Command"
+      owasp: "A01:2021 - Broken Access Control"
+      confidence: HIGH
+      likelihood: HIGH
+      impact: CRITICAL
