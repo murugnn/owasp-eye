@@ -1,0 +1,477 @@
+rules:
+  # ============================================================================
+  # 1. WEAK OR DEPRECATED HASH FUNCTIONS
+  # ============================================================================
+
+  - id: javascript-weak-hash-functions
+    message: "Weak or deprecated hash function detected. MD5 and SHA1 are cryptographically broken and should not be used for security purposes. Use SHA-256 or stronger."
+    severity: ERROR
+    languages:
+      - javascript
+      - typescript
+    metadata:
+      owasp: "A02:2021"
+      category: "security"
+      cwe: "CWE-327: Use of a Broken or Risky Cryptographic Algorithm"
+      confidence: HIGH
+    pattern-either:
+      - pattern: crypto.createHash("md5")
+      - pattern: crypto.createHash("sha1")
+      - pattern: crypto.createHash('md5')
+      - pattern: crypto.createHash('sha1')
+      - pattern: require('crypto').createHash("md5")
+      - pattern: require('crypto').createHash("sha1")
+      - pattern: require('crypto').createHash('md5')
+      - pattern: require('crypto').createHash('sha1')
+
+  - id: javascript-weak-hash-libraries
+    message: "Weak hash function from external library detected. MD5 and SHA1 are cryptographically broken and should not be used for security purposes."
+    severity: ERROR
+    languages:
+      - javascript
+      - typescript
+    metadata:
+      owasp: "A02:2021"
+      category: "security"
+      cwe: "CWE-327: Use of a Broken or Risky Cryptographic Algorithm"
+      confidence: HIGH
+    pattern-either:
+      - pattern: require('md5')(...)
+      - pattern: require("md5")(...)
+      - pattern: require('sha1')(...)
+      - pattern: require("sha1")(...)
+
+  # ============================================================================
+  # 2. INSECURE CIPHER MODES
+  # ============================================================================
+
+  - id: javascript-insecure-cipher-modes
+    message: "Insecure cipher mode detected. ECB mode does not provide semantic security and should be avoided. Use CBC, GCM, or other secure modes with proper IV handling."
+    severity: ERROR
+    languages:
+      - javascript
+      - typescript
+    metadata:
+      owasp: "A02:2021"
+      category: "security"
+      cwe: "CWE-327: Use of a Broken or Risky Cryptographic Algorithm"
+      confidence: HIGH
+    pattern-either:
+      - pattern: crypto.createCipher("aes-128-ecb", ...)
+      - pattern: crypto.createCipher("aes-192-ecb", ...)
+      - pattern: crypto.createCipher("aes-256-ecb", ...)
+      - pattern: crypto.createCipher('aes-128-ecb', ...)
+      - pattern: crypto.createCipher('aes-192-ecb', ...)
+      - pattern: crypto.createCipher('aes-256-ecb', ...)
+      - pattern: crypto.createCipheriv("aes-128-ecb", ...)
+      - pattern: crypto.createCipheriv("aes-192-ecb", ...)
+      - pattern: crypto.createCipheriv("aes-256-ecb", ...)
+      - pattern: crypto.createCipheriv('aes-128-ecb', ...)
+      - pattern: crypto.createCipheriv('aes-192-ecb', ...)
+      - pattern: crypto.createCipheriv('aes-256-ecb', ...)
+
+  - id: javascript-deprecated-cipher-methods
+    message: "Deprecated cipher method detected. crypto.createCipher() is deprecated and insecure. Use crypto.createCipheriv() with explicit IV/key derivation."
+    severity: ERROR
+    languages:
+      - javascript
+      - typescript
+    metadata:
+      owasp: "A02:2021"
+      category: "security"
+      cwe: "CWE-327: Use of a Broken or Risky Cryptographic Algorithm"
+      confidence: HIGH
+    pattern-either:
+      - pattern: crypto.createCipher(...)
+      - pattern: crypto.createDecipher(...)
+      - pattern: require('crypto').createCipher(...)
+      - pattern: require('crypto').createDecipher(...)
+
+  - id: javascript-static-iv-usage
+    message: "Static IV or key detected in encryption. IVs should be unique and random for each encryption operation to ensure semantic security."
+    severity: ERROR
+    languages:
+      - javascript
+      - typescript
+    metadata:
+      owasp: "A02:2021"
+      category: "security"
+      cwe: "CWE-329: Not Using an Unpredictable IV with CBC Mode"
+      confidence: MEDIUM
+    pattern-either:
+      - pattern: crypto.createCipheriv($ALGORITHM, $KEY, "...")
+      - pattern: crypto.createCipheriv($ALGORITHM, $KEY, '...')
+      - pattern: crypto.createCipheriv($ALGORITHM, "...", $IV)
+      - pattern: crypto.createCipheriv($ALGORITHM, '...', $IV)
+
+  # ============================================================================
+  # 3. INSECURE RANDOM NUMBER GENERATORS
+  # ============================================================================
+
+  - id: javascript-insecure-random-for-security
+    message: "Insecure random number generator used in security context. Use 'crypto.randomBytes()' or 'crypto.getRandomValues()' for cryptographically secure random numbers."
+    severity: ERROR
+    languages:
+      - javascript
+      - typescript
+    metadata:
+      owasp: "A02:2021"
+      category: "security"
+      cwe: "CWE-338: Use of Cryptographically Weak Pseudo-Random Number Generator"
+      confidence: HIGH
+    patterns:
+      - pattern-inside: |
+          function $FUNC(...) {
+            ...
+          }
+      - pattern: Math.random()
+      - metavariable-regex:
+          metavariable: $FUNC
+          regex: ".*(key|token|secret|password|salt|nonce|iv|auth|crypto|encrypt|decrypt|session|csrf|otp|pin).*"
+
+  - id: javascript-insecure-random-assignment
+    message: "Insecure random number generator used for security-related variable. Use crypto.randomBytes() for cryptographically secure random numbers."
+    severity: ERROR
+    languages:
+      - javascript
+      - typescript
+    metadata:
+      owasp: "A02:2021"
+      category: "security"
+      cwe: "CWE-338: Use of Cryptographically Weak Pseudo-Random Number Generator"
+      confidence: HIGH
+    patterns:
+      - pattern: $VAR = Math.random()
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: ".*(key|token|secret|password|salt|nonce|iv|auth|crypto|encrypt|decrypt|session|csrf|otp|pin).*"
+
+  - id: javascript-date-based-random
+    message: "Date-based random number generation detected. This is predictable and should not be used for security purposes. Use crypto.randomBytes() instead."
+    severity: ERROR
+    languages:
+      - javascript
+      - typescript
+    metadata:
+      owasp: "A02:2021"
+      category: "security"
+      cwe: "CWE-338: Use of Cryptographically Weak Pseudo-Random Number Generator"
+      confidence: HIGH
+    patterns:
+      - pattern: $VAR = new Date().getTime()
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: ".*(key|token|secret|password|salt|nonce|iv|seed|random).*"
+
+  - id: javascript-date-now-random
+    message: "Date.now() used for security-related randomness. This is predictable and should not be used for security purposes."
+    severity: ERROR
+    languages:
+      - javascript
+      - typescript
+    metadata:
+      owasp: "A02:2021"
+      category: "security"
+      cwe: "CWE-338: Use of Cryptographically Weak Pseudo-Random Number Generator"
+      confidence: HIGH
+    patterns:
+      - pattern: $VAR = Date.now()
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: ".*(key|token|secret|password|salt|nonce|iv|seed|random).*"
+
+  # ============================================================================
+  # 4. HARDCODED CRYPTOGRAPHIC KEYS OR SECRETS
+  # ============================================================================
+
+  - id: javascript-hardcoded-secrets-const
+    message: "Hardcoded secret detected in const declaration. Secrets should be stored in environment variables or secure key management systems."
+    severity: ERROR
+    languages:
+      - javascript
+      - typescript
+    metadata:
+      owasp: "A02:2021"
+      category: "security"
+      cwe: "CWE-798: Use of Hard-coded Credentials"
+      confidence: HIGH
+    patterns:
+      - pattern: const $VAR = "..."
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: ".*(key|secret|token|password|api_key|apikey|private_key|privatekey|access_token|accesstoken|auth_token|authtoken|jwt_secret|session_secret|encryption_key|signing_key).*"
+
+  - id: javascript-hardcoded-secrets-let
+    message: "Hardcoded secret detected in let declaration. Secrets should be stored in environment variables or secure key management systems."
+    severity: ERROR
+    languages:
+      - javascript
+      - typescript
+    metadata:
+      owasp: "A02:2021"
+      category: "security"
+      cwe: "CWE-798: Use of Hard-coded Credentials"
+      confidence: HIGH
+    patterns:
+      - pattern: let $VAR = "..."
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: ".*(key|secret|token|password|api_key|apikey|private_key|privatekey|access_token|accesstoken|auth_token|authtoken|jwt_secret|session_secret|encryption_key|signing_key).*"
+
+  - id: javascript-hardcoded-secrets-var
+    message: "Hardcoded secret detected in var declaration. Secrets should be stored in environment variables or secure key management systems."
+    severity: ERROR
+    languages:
+      - javascript
+      - typescript
+    metadata:
+      owasp: "A02:2021"
+      category: "security"
+      cwe: "CWE-798: Use of Hard-coded Credentials"
+      confidence: HIGH
+    patterns:
+      - pattern: var $VAR = "..."
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: ".*(key|secret|token|password|api_key|apikey|private_key|privatekey|access_token|accesstoken|auth_token|authtoken|jwt_secret|session_secret|encryption_key|signing_key).*"
+
+  - id: javascript-common-weak-secrets
+    message: "Common weak secret detected. Use strong, randomly generated secrets instead of predictable values."
+    severity: ERROR
+    languages:
+      - javascript
+      - typescript
+    metadata:
+      owasp: "A02:2021"
+      category: "security"
+      cwe: "CWE-798: Use of Hard-coded Credentials"
+      confidence: HIGH
+    pattern-either:
+      - pattern: $VAR = "secret"
+      - pattern: $VAR = "password"
+      - pattern: $VAR = "123456"
+      - pattern: $VAR = "admin"
+      - pattern: $VAR = "test"
+      - pattern: $VAR = "changeme"
+      - pattern: $VAR = "default"
+      - pattern: $VAR = "key"
+
+  - id: html-embedded-secrets
+    message: "Potential secret embedded in HTML data attributes. Secrets should never be exposed in client-side code."
+    severity: ERROR
+    languages:
+      - html
+    metadata:
+      owasp: "A02:2021"
+      category: "security"
+      cwe: "CWE-798: Use of Hard-coded Credentials"
+      confidence: MEDIUM
+    pattern-regex: 'data-.*?(key|secret|token).*?=.*?"[^"]{16,}"'
+
+  # ============================================================================
+  # 5. IMPROPER OR MISSING CERTIFICATE VALIDATION
+  # ============================================================================
+
+  - id: javascript-disabled-ssl-verification-env
+    message: "SSL certificate verification disabled via environment variable. This makes the application vulnerable to man-in-the-middle attacks."
+    severity: ERROR
+    languages:
+      - javascript
+      - typescript
+    metadata:
+      owasp: "A02:2021"
+      category: "security"
+      cwe: "CWE-295: Improper Certificate Validation"
+      confidence: HIGH
+    pattern-either:
+      - pattern: process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = "0"
+      - pattern: process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"
+      - pattern: process.env.NODE_TLS_REJECT_UNAUTHORIZED = 0
+
+  - id: javascript-https-reject-unauthorized-false
+    message: "HTTPS request configured to ignore certificate errors. This makes the application vulnerable to man-in-the-middle attacks."
+    severity: ERROR
+    languages:
+      - javascript
+      - typescript
+    metadata:
+      owasp: "A02:2021"
+      category: "security"
+      cwe: "CWE-295: Improper Certificate Validation"
+      confidence: HIGH
+    patterns:
+      - pattern-inside: |
+          https.request($OPTIONS, ...)
+      - pattern-inside: |
+          $OPTIONS = { ..., rejectUnauthorized: false, ... }
+    fix: "Set rejectUnauthorized to true or remove the property to use default secure behavior"
+
+  - id: javascript-https-get-reject-unauthorized-false
+    message: "HTTPS GET request configured to ignore certificate errors. This makes the application vulnerable to man-in-the-middle attacks."
+    severity: ERROR
+    languages:
+      - javascript
+      - typescript
+    metadata:
+      owasp: "A02:2021"
+      category: "security"
+      cwe: "CWE-295: Improper Certificate Validation"
+      confidence: HIGH
+    patterns:
+      - pattern-inside: |
+          https.get($OPTIONS, ...)
+      - pattern-inside: |
+          $OPTIONS = { ..., rejectUnauthorized: false, ... }
+
+  - id: javascript-axios-reject-unauthorized-false
+    message: "Axios request configured to ignore certificate errors. This makes the application vulnerable to man-in-the-middle attacks."
+    severity: ERROR
+    languages:
+      - javascript
+      - typescript
+    metadata:
+      owasp: "A02:2021"
+      category: "security"
+      cwe: "CWE-295: Improper Certificate Validation"
+      confidence: HIGH
+    patterns:
+      - pattern-inside: |
+          axios($CONFIG)
+      - pattern-inside: |
+          $CONFIG = { ..., rejectUnauthorized: false, ... }
+
+  - id: javascript-request-reject-unauthorized-regex
+    message: "Certificate validation disabled in HTTP request. This makes the application vulnerable to man-in-the-middle attacks."
+    severity: ERROR
+    languages:
+      - javascript
+      - typescript
+    metadata:
+      owasp: "A02:2021"
+      category: "security"
+      cwe: "CWE-295: Improper Certificate Validation"
+      confidence: HIGH
+    pattern-regex: 'rejectUnauthorized\s*:\s*false'
+
+  # ============================================================================
+  # 6. WEB-SPECIFIC CRYPTOGRAPHIC VULNERABILITIES
+  # ============================================================================
+
+  - id: javascript-weak-jwt-secret
+    message: "Short JWT secret detected. JWT secrets should be long and random. Short secrets can be brute-forced."
+    severity: ERROR
+    languages:
+      - javascript
+      - typescript
+    metadata:
+      owasp: "A02:2021"
+      category: "security"
+      cwe: "CWE-798: Use of Hard-coded Credentials"
+      confidence: HIGH
+    patterns:
+      - pattern-either:
+          - pattern: jwt.sign($PAYLOAD, "...", ...)
+          - pattern: jwt.verify($TOKEN, "...", ...)
+      - metavariable-regex:
+          metavariable: $TOKEN
+          regex: "\"[^\"]{1,15}\""
+
+  - id: javascript-insecure-cookie-settings
+    message: "Cookie with sensitive name lacks secure flag. Cookies containing sensitive data should use secure settings."
+    severity: WARNING
+    languages:
+      - javascript
+      - typescript
+    metadata:
+      owasp: "A02:2021"
+      category: "security"
+      cwe: "CWE-614: Sensitive Cookie in HTTPS Session Without 'Secure' Attribute"
+      confidence: MEDIUM
+    patterns:
+      - pattern-inside: |
+          res.cookie($NAME, $VALUE, $OPTIONS)
+      - pattern-inside: |
+          $OPTIONS = { ..., secure: false, ... }
+      - metavariable-regex:
+          metavariable: $NAME
+          regex: ".*(session|token|auth|key|secret).*"
+
+  - id: javascript-localStorage-sensitive-data
+    message: "Sensitive data stored in localStorage. This data persists and can be accessed by any script on the domain."
+    severity: WARNING
+    languages:
+      - javascript
+      - typescript
+    metadata:
+      owasp: "A02:2021"
+      category: "security"
+      cwe: "CWE-312: Cleartext Storage of Sensitive Information"
+      confidence: MEDIUM
+    patterns:
+      - pattern: localStorage.setItem($KEY, ...)
+      - metavariable-regex:
+          metavariable: $KEY
+          regex: ".*(token|key|secret|password|auth|session|jwt|credential).*"
+
+  - id: javascript-sessionStorage-sensitive-data
+    message: "Sensitive data stored in sessionStorage. This data can be accessed by any script on the domain."
+    severity: WARNING
+    languages:
+      - javascript
+      - typescript
+    metadata:
+      owasp: "A02:2021"
+      category: "security"
+      cwe: "CWE-312: Cleartext Storage of Sensitive Information"
+      confidence: MEDIUM
+    patterns:
+      - pattern: sessionStorage.setItem($KEY, ...)
+      - metavariable-regex:
+          metavariable: $KEY
+          regex: ".*(token|key|secret|password|auth|session|jwt|credential).*"
+
+  # ============================================================================
+  # 7. BROWSER-SPECIFIC SECURITY ISSUES
+  # ============================================================================
+
+  - id: javascript-weak-crypto-subtle-sha1
+    message: "Weak SHA-1 algorithm detected in Web Crypto API. SHA-1 is cryptographically broken and should not be used for security purposes."
+    severity: ERROR
+    languages:
+      - javascript
+      - typescript
+    metadata:
+      owasp: "A02:2021"
+      category: "security"
+      cwe: "CWE-327: Use of a Broken or Risky Cryptographic Algorithm"
+      confidence: HIGH
+    pattern-either:
+      - pattern: crypto.subtle.digest("SHA-1", ...)
+      - patterns:
+          - pattern-inside: |
+              crypto.subtle.importKey(..., $OPTIONS, ...)
+          - pattern-inside: |
+              $OPTIONS = { ..., hash: "SHA-1", ... }
+      - patterns:
+          - pattern-inside: |
+              crypto.subtle.sign($OPTIONS, ...)
+          - pattern-inside: |
+              $OPTIONS = { ..., hash: "SHA-1", ... }
+
+  - id: javascript-math-random-crypto-fallback
+    message: "Math.random() used as crypto fallback. Ensure cryptographically secure random number generation in all code paths."
+    severity: WARNING
+    languages:
+      - javascript
+      - typescript
+    metadata:
+      owasp: "A02:2021"
+      category: "security"
+      cwe: "CWE-338: Use of Cryptographically Weak Pseudo-Random Number Generator"
+      confidence: MEDIUM
+    patterns:
+      - pattern-inside: |
+          if (!crypto.getRandomValues) {
+            ...
+          }
+      - pattern: Math.random()
