@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import requests
 import urllib.parse
 import re
@@ -48,7 +46,6 @@ class DASTScanner:
         """A01:2021 – Injection (SQL, NoSQL, LDAP, OS Command)"""
         print("Scanning for Injection Flaws...")
         
-        # SQL Injection payloads
         sql_payloads = [
             "' OR '1'='1",
             "' UNION SELECT NULL--",
@@ -59,14 +56,14 @@ class DASTScanner:
             "1' AND (SELECT COUNT(*) FROM information_schema.tables)>0 AND '1'='1"
         ]
         
-        # NoSQL Injection payloads
+
         nosql_payloads = [
             '{"$ne": null}',
             '{"$gt": ""}',
             '{"$regex": ".*"}'
         ]
         
-        # OS Command Injection payloads
+    
         cmd_payloads = [
             '; ls -la',
             '| whoami',
@@ -75,7 +72,7 @@ class DASTScanner:
             '`id`'
         ]
         
-        # Test GET parameters
+
         test_url = f"{self.target_url}?id=1"
         
         for payload in sql_payloads + nosql_payloads + cmd_payloads:
@@ -90,7 +87,7 @@ class DASTScanner:
                     {'payload': payload, 'response_length': len(response.text)}
                 )
         
-        # Test POST parameters
+ 
         for payload in sql_payloads:
             data = {'username': payload, 'password': 'test'}
             response = self.safe_request('POST', f"{self.target_url}/login", data=data)
@@ -124,7 +121,7 @@ class DASTScanner:
             if re.search(pattern, response_text, re.IGNORECASE):
                 return True
                 
-        # Check for unusual response times (time-based injection)
+
         if response.elapsed.total_seconds() > 5:
             return True
             
@@ -134,7 +131,7 @@ class DASTScanner:
         """A02:2021 – Cryptographic Failures (formerly Broken Authentication)"""
         print("Scanning for Authentication Issues...")
         
-        # Check for common authentication endpoints
+
         auth_endpoints = ['/login', '/admin', '/auth', '/signin', '/user/login']
         
         for endpoint in auth_endpoints:
@@ -151,17 +148,17 @@ class DASTScanner:
                         {'endpoint': endpoint}
                     )
         
-        # Test for default credentials
+ 
         self._test_default_credentials()
         
-        # Check for session management issues
+
         self._check_session_management()
 
     def _check_weak_auth(self, response):
         """Check for indicators of weak authentication"""
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # Look for forms without CSRF protection
+ 
         forms = soup.find_all('form')
         for form in forms:
             csrf_fields = form.find_all('input', {'name': re.compile(r'csrf|token', re.I)})
@@ -202,7 +199,7 @@ class DASTScanner:
         if not response:
             return
             
-        # Check for secure cookie flags
+
         for cookie in response.cookies:
             if not cookie.secure:
                 self.log_vulnerability(
@@ -224,7 +221,7 @@ class DASTScanner:
         """A03:2021 – Injection (Sensitive Data Exposure aspects)"""
         print("Scanning for Sensitive Data Exposure...")
         
-        # Check for sensitive files
+
         sensitive_files = [
             '/.env',
             '/config.php',
@@ -251,7 +248,7 @@ class DASTScanner:
                         {'file_path': file_path}
                     )
         
-        # Check for HTTP vs HTTPS
+
         if not self.target_url.startswith('https://'):
             self.log_vulnerability(
                 'A03:2021 – Sensitive Data Exposure',
@@ -285,7 +282,7 @@ class DASTScanner:
         <!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>
         <root>&xxe;</root>'''
         
-        # Test XML endpoints
+
         xml_endpoints = ['/api/xml', '/upload', '/import', '/parse']
         
         for endpoint in xml_endpoints:
@@ -307,7 +304,7 @@ class DASTScanner:
         """A05:2021 – Security Misconfiguration (Access Control aspects)"""
         print("Scanning for Broken Access Control...")
         
-        # Test for directory traversal
+
         traversal_payloads = [
             '../../../etc/passwd',
             '..\\..\\..\\windows\\system32\\drivers\\etc\\hosts',
@@ -328,12 +325,12 @@ class DASTScanner:
                     {'payload': payload}
                 )
         
-        # Test for privilege escalation
+
         self._test_privilege_escalation()
 
     def _test_privilege_escalation(self):
         """Test for horizontal/vertical privilege escalation"""
-        # Test accessing admin pages without authentication
+
         admin_pages = ['/admin', '/admin/', '/administrator', '/manage', '/control']
         
         for page in admin_pages:
@@ -357,7 +354,7 @@ class DASTScanner:
         if not response:
             return
         
-        # Check security headers
+
         security_headers = {
             'X-Frame-Options': 'Clickjacking protection missing',
             'X-Content-Type-Options': 'MIME type sniffing protection missing',
@@ -375,7 +372,7 @@ class DASTScanner:
                     {'missing_header': header}
                 )
         
-        # Check for verbose error messages
+
         if 'stack trace' in response.text.lower() or 'exception' in response.text.lower():
             self.log_vulnerability(
                 'A06:2021 – Security Misconfiguration',
@@ -397,7 +394,7 @@ class DASTScanner:
             "'><script>alert(String.fromCharCode(88,83,83))</script>"
         ]
         
-        # Test reflected XSS
+
         for payload in xss_payloads:
             test_url = f"{self.target_url}?q={urllib.parse.quote(payload)}"
             response = self.safe_request('GET', test_url)
@@ -410,12 +407,12 @@ class DASTScanner:
                     {'payload': payload, 'type': 'Reflected'}
                 )
         
-        # Test stored XSS (if forms are present)
+
         self._test_stored_xss()
 
     def _test_stored_xss(self):
         """Test for stored XSS vulnerabilities"""
-        # Look for forms that might store data
+
         response = self.safe_request('GET', self.target_url)
         if not response:
             return
@@ -430,7 +427,7 @@ class DASTScanner:
             else:
                 form_url = self.target_url
             
-            # Prepare form data with XSS payload
+
             form_data = {}
             inputs = form.find_all('input')
             
@@ -446,13 +443,13 @@ class DASTScanner:
         """A08:2021 – Software and Data Integrity Failures"""
         print("Scanning for Insecure Deserialization...")
         
-        # Test for common serialization endpoints
+
         serialization_endpoints = ['/api/deserialize', '/upload', '/import']
         
-        # PHP Object Injection payload
+   
         php_payload = 'O:8:"stdClass":1:{s:4:"test";s:4:"data";}'
         
-        # Python pickle payload (base64 encoded)
+ 
         python_payload = 'gANjX19idWlsdGluX18KZXZhbApxAFgEAAAAdGVzdHEBhXECUnEDLg=='
         
         payloads = [php_payload, python_payload]
@@ -480,14 +477,14 @@ class DASTScanner:
         if not response:
             return
         
-        # Check server headers for version information
+
         server_header = response.headers.get('Server', '')
         if server_header:
-            # Look for known vulnerable versions (simplified check)
+           
             vulnerable_patterns = [
-                r'Apache/2\.[01]\.',  # Old Apache versions
-                r'nginx/1\.[01]\.',   # Old Nginx versions
-                r'PHP/[5-7]\.[0-2]\.', # Old PHP versions
+                r'Apache/2\.[01]\.',  
+                r'nginx/1\.[01]\.',   
+                r'PHP/[5-7]\.[0-2]\.', 
             ]
             
             for pattern in vulnerable_patterns:
@@ -499,7 +496,7 @@ class DASTScanner:
                         {'server_header': server_header}
                     )
         
-        # Check for common vulnerable files/paths
+
         self._check_vulnerable_files()
 
     def _check_vulnerable_files(self):
@@ -531,13 +528,12 @@ class DASTScanner:
         """A10:2021 – Server-Side Request Forgery (SSRF)"""
         print("Scanning for Insufficient Logging & Monitoring...")
         
-        # This is harder to test automatically, but we can check for some indicators
-        # Test for SSRF vulnerabilities which relate to monitoring failures
+
         
         ssrf_payloads = [
             'http://localhost:80',
             'http://127.0.0.1:22',
-            'http://169.254.169.254/latest/meta-data/',  # AWS metadata
+            'http://169.254.169.254/latest/meta-data/',  
             'file:///etc/passwd',
             'gopher://127.0.0.1:22/_test'
         ]
@@ -561,7 +557,7 @@ class DASTScanner:
         print(f"Starting DAST scan for: {self.target_url}")
         print("=" * 60)
         
-        # Verify target is reachable
+       
         response = self.safe_request('GET', self.target_url)
         if not response:
             print(f"Error: Could not reach target URL: {self.target_url}")
@@ -570,7 +566,7 @@ class DASTScanner:
         print(f"Target is reachable (Status: {response.status_code})")
         print("Starting vulnerability scans...\n")
         
-        # Run all scans
+       
         scan_methods = [
             self.scan_injection_flaws,
             self.scan_broken_authentication,
@@ -587,7 +583,7 @@ class DASTScanner:
         for scan_method in scan_methods:
             try:
                 scan_method()
-                time.sleep(1)  # Be respectful to the target
+                time.sleep(1) 
             except Exception as e:
                 print(f"Error in {scan_method.__name__}: {str(e)}")
         
@@ -603,12 +599,12 @@ class DASTScanner:
             print("✅ No vulnerabilities detected!")
             return
         
-        # Sort vulnerabilities by severity
+        
         severity_order = {'Critical': 0, 'High': 1, 'Medium': 2, 'Low': 3}
         sorted_vulns = sorted(self.vulnerabilities, 
                             key=lambda x: severity_order.get(x['severity'], 4))
         
-        # Count by severity
+     
         severity_counts = {}
         for vuln in sorted_vulns:
             severity_counts[vuln['severity']] = severity_counts.get(vuln['severity'], 0) + 1
@@ -646,13 +642,12 @@ def main():
     
     args = parser.parse_args()
     
-    # Validate URL
     parsed_url = urlparse(args.url)
     if not parsed_url.scheme or not parsed_url.netloc:
         print("Error: Please provide a valid URL (e.g., http://example.com)")
         sys.exit(1)
     
-    # Initialize and run scanner
+    
     scanner = DASTScanner(args.url, timeout=args.timeout)
     scanner.run_scan()
 

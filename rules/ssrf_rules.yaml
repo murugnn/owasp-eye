@@ -1,5 +1,4 @@
 rules:
-  # --- Python SSRF Detection ---
   - id: ssrf-python
     languages: [python]
     severity: ERROR
@@ -22,7 +21,6 @@ rules:
         ...
     fix: "# ⚠️ Add domain whitelist or URL sanitization here"
 
-  # --- JavaScript/Node.js SSRF Detection ---
   - id: ssrf-nodejs
     languages: [javascript, typescript]
     severity: ERROR
@@ -48,7 +46,7 @@ rules:
       }
     fix: "// ⚠️ Whitelist domain before making request"
 
-  # --- Java SSRF Detection ---
+
   - id: ssrf-java
     languages: [java]
     severity: ERROR
@@ -71,7 +69,7 @@ rules:
       }
     fix: "// ⚠️ Add domain validation or blocklist before URL usage"
 
-  # --- Go SSRF Detection ---
+ 
   - id: ssrf-go
     languages: [go]
     severity: ERROR

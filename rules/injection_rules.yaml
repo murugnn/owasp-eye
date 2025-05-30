@@ -78,13 +78,13 @@ rules:
   - id: js-command-injection-libraries
     patterns:
     - pattern-either:
-        # shelljs library
+        
         - pattern: "require('shelljs').exec($INPUT)"
         - pattern: "$SHELL.exec($INPUT)"
-        # execa library with shell option
+        
         - pattern: "require('execa')($INPUT, { shell: true })"
         - pattern: "require('execa').command($INPUT)"
-        # Other shell execution patterns
+        
         - pattern: "require('util').promisify(require('child_process').exec)($INPUT)"
     message: "Command injection through shell execution library detected. Validate input or avoid shell execution with untrusted data."
     languages: [javascript, typescript]

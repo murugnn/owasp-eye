@@ -71,13 +71,13 @@ rules:
       owasp: A09:2021
     patterns:
       - pattern-either:
-          # Logging sensitive variable directly
+          
           - pattern: $LOGGER.$METHOD(..., $SENSITIVE, ...);
-          # Logging sensitive property of an object
+        
           - pattern: $LOGGER.$METHOD(..., $SENSITIVE.$PROPERTY, ...);
-          # Using console.log with sensitive variable
+        
           - pattern: console.log(..., $SENSITIVE, ...);
-          # Using console.log with sensitive property
+        
           - pattern: console.log(..., $SENSITIVE.$PROPERTY, ...);
     metavariables:
       SENSITIVE:

@@ -1,8 +1,4 @@
 rules:
-  # ============================================================================
-  # 1. WEAK OR DEPRECATED HASH FUNCTIONS
-  # ============================================================================
-
   - id: javascript-weak-hash-functions
     message: "Weak or deprecated hash function detected. MD5 and SHA1 are cryptographically broken and should not be used for security purposes. Use SHA-256 or stronger."
     severity: ERROR
@@ -41,10 +37,7 @@ rules:
       - pattern: require('sha1')(...)
       - pattern: require("sha1")(...)
 
-  # ============================================================================
-  # 2. INSECURE CIPHER MODES
-  # ============================================================================
-
+ 
   - id: javascript-insecure-cipher-modes
     message: "Insecure cipher mode detected. ECB mode does not provide semantic security and should be avoided. Use CBC, GCM, or other secure modes with proper IV handling."
     severity: ERROR
@@ -104,10 +97,7 @@ rules:
       - pattern: crypto.createCipheriv($ALGORITHM, "...", $IV)
       - pattern: crypto.createCipheriv($ALGORITHM, '...', $IV)
 
-  # ============================================================================
-  # 3. INSECURE RANDOM NUMBER GENERATORS
-  # ============================================================================
-
+ 
   - id: javascript-insecure-random-for-security
     message: "Insecure random number generator used in security context. Use 'crypto.randomBytes()' or 'crypto.getRandomValues()' for cryptographically secure random numbers."
     severity: ERROR
@@ -180,10 +170,7 @@ rules:
           metavariable: $VAR
           regex: ".*(key|token|secret|password|salt|nonce|iv|seed|random).*"
 
-  # ============================================================================
-  # 4. HARDCODED CRYPTOGRAPHIC KEYS OR SECRETS
-  # ============================================================================
-
+ 
   - id: javascript-hardcoded-secrets-const
     message: "Hardcoded secret detected in const declaration. Secrets should be stored in environment variables or secure key management systems."
     severity: ERROR
@@ -268,9 +255,6 @@ rules:
       confidence: MEDIUM
     pattern-regex: 'data-.*?(key|secret|token).*?=.*?"[^"]{16,}"'
 
-  # ============================================================================
-  # 5. IMPROPER OR MISSING CERTIFICATE VALIDATION
-  # ============================================================================
 
   - id: javascript-disabled-ssl-verification-env
     message: "SSL certificate verification disabled via environment variable. This makes the application vulnerable to man-in-the-middle attacks."
@@ -353,10 +337,7 @@ rules:
       confidence: HIGH
     pattern-regex: 'rejectUnauthorized\s*:\s*false'
 
-  # ============================================================================
-  # 6. WEB-SPECIFIC CRYPTOGRAPHIC VULNERABILITIES
-  # ============================================================================
-
+ 
   - id: javascript-weak-jwt-secret
     message: "Short JWT secret detected. JWT secrets should be long and random. Short secrets can be brute-forced."
     severity: ERROR
@@ -430,10 +411,7 @@ rules:
           metavariable: $KEY
           regex: ".*(token|key|secret|password|auth|session|jwt|credential).*"
 
-  # ============================================================================
-  # 7. BROWSER-SPECIFIC SECURITY ISSUES
-  # ============================================================================
-
+  
   - id: javascript-weak-crypto-subtle-sha1
     message: "Weak SHA-1 algorithm detected in Web Crypto API. SHA-1 is cryptographically broken and should not be used for security purposes."
     severity: ERROR

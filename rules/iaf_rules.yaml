@@ -1,6 +1,4 @@
 rules:
-  # === UNIVERSAL RULES ===
-  # -- Session ID in URL --
   - id: a07-session-id-in-url
     languages: [python, javascript, java, go, php, ruby]
     severity: WARNING
@@ -9,7 +7,7 @@ rules:
     metadata:
       owasp: "A07:2021 - Session ID exposure in URL"
 
-  # -- Weak hash functions --
+ 
   - id: a07-insecure-password-hash
     languages: [python, java, javascript, php, ruby]
     severity: ERROR
@@ -24,7 +22,7 @@ rules:
     metadata:
       owasp: "A07:2021 - Weak hash function"
 
-  # === HARD-CODED SECRETS & DICTIONARY CHECK ===
+  
   - id: a07-hardcoded-passwords
     languages: [python, java, javascript, go, php, ruby]
     severity: ERROR
@@ -33,9 +31,7 @@ rules:
     metadata:
       owasp: "A07:2021 - Hardcoded secrets"
 
-  # === PER LANGUAGE ===
-
-  # ==== PYTHON ====
+  
   - id: a07-python-plaintext-password-comparison
     languages: [python]
     severity: ERROR
@@ -58,7 +54,7 @@ rules:
     metadata:
       owasp: "A07:2021 - Missing auth middleware"
 
-  # ==== JAVASCRIPT ====
+  
   - id: a07-js-missing-auth-middleware
     languages: [javascript, typescript]
     severity: ERROR
@@ -82,7 +78,7 @@ rules:
     metadata:
       owasp: "A07:2021 - Plaintext password comparison"
 
-  # ==== JAVA ====
+  
   - id: a07-java-missing-auth-filter
     languages: [java]
     severity: WARNING
@@ -104,7 +100,7 @@ rules:
     metadata:
       owasp: "A07:2021 - Predictable session token"
 
-  # ==== GO ====
+  
   - id: a07-go-missing-auth-check
     languages: [go]
     severity: WARNING
