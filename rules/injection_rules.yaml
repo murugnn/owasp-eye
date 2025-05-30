@@ -1,0 +1,210 @@
+rules:
+  - id: js-sql-injection-string-concat
+    patterns:
+      - pattern-either:
+          - pattern: $DB.query("..." + $INPUT + "...")
+          - pattern: $DB.execute("..." + $INPUT + "...")
+          - pattern: $DB.raw("..." + $INPUT + "...")
+          - pattern: $DB.query(`...${$INPUT}...`)
+          - pattern: $DB.execute(`...${$INPUT}...`)
+          - pattern: $DB.raw(`...${$INPUT}...`)
+          - pattern: $DB.query($STR.format($INPUT))
+          - pattern: $DB.execute(util.format("...", $INPUT))
+          - pattern: $KNEX.raw("..." + $INPUT + "...")
+          - pattern: $SEQUELIZE.query("..." + $INPUT + "...")
+          - pattern: $MYSQL.query("..." + $INPUT + "...")
+          - pattern: $PG.query("..." + $INPUT + "...")
+      - pattern-not: $DB.query("...", [...])
+      - pattern-not: $DB.execute("...", [...])
+      - pattern-not: $DB.query("...", $PARAMS)
+      - pattern-not: $DB.execute("...", $PARAMS)
+    message: "SQL Injection vulnerability detected. Avoid string concatenation/interpolation with untrusted input ($INPUT) in SQL queries. Use parameterized queries with placeholders (?, $1, etc.) instead."
+    languages: ["javascript", "typescript"]
+    severity: "ERROR"
+    metadata:
+      cwe: "CWE-89"
+      owasp: "A03_2021-Injection"
+      category: "security"
+      technology: ["javascript", "typescript", "sql", "mysql", "postgresql", "sqlite"]
+
+  - id: js-sql-injection-dynamic-queries
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $QUERY = "..." + $INPUT + "..."
+              $DB.query($QUERY)
+          - pattern: |
+              $QUERY = `...${$INPUT}...`
+              $DB.execute($QUERY)
+          - pattern: $DB.query("SELECT * FROM users WHERE " + $INPUT)
+          - pattern: $DB.query(`SELECT * FROM users WHERE ${$INPUT}`)
+          - pattern: $DB.query("... ORDER BY " + $INPUT)
+          - pattern: $DB.query(`... ORDER BY ${$INPUT}`)
+    message: "Dynamic SQL query construction with untrusted input detected. This can lead to SQL injection. Use parameterized queries or input validation."
+    languages: ["javascript", "typescript"]
+    severity: "ERROR"
+    metadata:
+      cwe: "CWE-89"
+      owasp: "A03_2021-Injection"
+      category: "security"
+
+  - id: js-command-injection-exec
+    patterns:
+      - pattern-either:
+          - pattern: require('child_process').exec($INPUT, ...)
+          - pattern: require('child_process').execSync($INPUT, ...)
+          - pattern: require('child_process').spawn($INPUT, ...)
+          - pattern: require('child_process').spawnSync($INPUT, ...)
+          - pattern: require('child_process').execFile($INPUT, ...)
+          - pattern: require('child_process').execFileSync($INPUT, ...)
+          - pattern: require('child_process').exec("..." + $INPUT + "...", ...)
+          - pattern: require('child_process').execSync("..." + $INPUT + "...", ...)
+          - pattern: require('child_process').exec(`...${$INPUT}...`, ...)
+          - pattern: require('child_process').execSync(`...${$INPUT}...`, ...)
+          - pattern: require('child_process').exec($INPUT)
+          - pattern: require('child_process').spawn('/bin/sh', ['-c', $INPUT])
+      - pattern-not: require('child_process').exec("static_command", ...)
+      - pattern-not: require('child_process').execSync("static_command", ...)
+      - pattern-not: require('child_process').spawn("static_command", [...])
+    message: "Command Injection vulnerability detected. Untrusted input ($INPUT) used in system command execution. Validate input, use allowlists, or avoid shell execution."
+    languages: ["javascript", "typescript"]
+    severity: "ERROR"
+    metadata:
+      cwe: "CWE-78"
+      owasp: "A03_2021-Injection"
+      category: "security"
+      technology: ["javascript", "typescript", "node.js"]
+
+  - id: js-command-injection-libraries
+    patterns:
+    - pattern-either:
+        # shelljs library
+        - pattern: "require('shelljs').exec($INPUT)"
+        - pattern: "$SHELL.exec($INPUT)"
+        # execa library with shell option
+        - pattern: "require('execa')($INPUT, { shell: true })"
+        - pattern: "require('execa').command($INPUT)"
+        # Other shell execution patterns
+        - pattern: "require('util').promisify(require('child_process').exec)($INPUT)"
+    message: "Command injection through shell execution library detected. Validate input or avoid shell execution with untrusted data."
+    languages: [javascript, typescript]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-78"
+      category: security
+
+
+  - id: js-path-traversal
+    patterns:
+      - pattern-either:
+          - pattern: require('fs').readFile($INPUT, ...)
+          - pattern: require('fs').writeFile($INPUT, ...)
+          - pattern: require('fs').unlink($INPUT, ...)
+          - pattern: require('fs').readFileSync($INPUT, ...)
+          - pattern: require('fs').writeFileSync($INPUT, ...)
+          - pattern: require('fs').unlinkSync($INPUT)
+          - pattern: require('fs').readFile(__dirname + "/" + $INPUT, ...)
+          - pattern: require('fs').readFile(`${__dirname}/${$INPUT}`, ...)
+      - pattern-not: require('fs').readFile("static/path", ...)
+      - pattern-not: require('fs').writeFile("static/path", ...)
+    message: "Potential path traversal vulnerability. Untrusted input ($INPUT) used in file operations. Validate and sanitize file paths."
+    languages: ["javascript", "typescript"]
+    severity: "WARNING"
+    metadata:
+      cwe: "CWE-22"
+      owasp: "A01_2021-Broken_Access_Control"
+      category: "security"
+
+  - id: js-dom-xss-sinks
+    patterns:
+      - pattern-either:
+          - pattern: $ELEMENT.innerHTML = $INPUT
+          - pattern: $ELEMENT.outerHTML = $INPUT
+          - pattern: document.write($INPUT)
+          - pattern: document.writeln($INPUT)
+          - pattern: $JQUERY.html($INPUT)
+          - pattern: $(...).html($INPUT)
+          - pattern: $ELEMENT.insertAdjacentHTML("...", $INPUT)
+          - pattern: location = $INPUT
+          - pattern: location.href = $INPUT
+          - pattern: window.location = $INPUT
+      - pattern-not: $ELEMENT.innerHTML = "static_content"
+      - pattern-not: document.write("static_content")
+      - pattern-not: $ELEMENT.textContent = $INPUT
+    message: "DOM-based XSS vulnerability detected. Untrusted input ($INPUT) used in DOM manipulation. Use textContent, setAttribute, or sanitization libraries like DOMPurify."
+    languages: ["javascript", "typescript"]
+    severity: "ERROR"
+    metadata:
+      cwe: "CWE-79"
+      owasp: "A03_2021-Injection"
+      category: "security"
+      technology: ["javascript", "typescript", "dom"]
+
+  - id: js-nosql-injection-mongodb
+    patterns:
+    - pattern-either:
+        - pattern: "$DB.find({ WHERE: $INPUT })"
+        - pattern: "$DB.findOne({ WHERE: $INPUT })"
+        - pattern: "$DB.update({ WHERE: $INPUT }, ...)"
+        - pattern: "$COLLECTION.find(JSON.parse($INPUT))"
+        - pattern: "$COLLECTION.findOne(JSON.parse($INPUT))"
+        - pattern: "$COLLECTION.find({ field: { regex: $INPUT } })"
+        - pattern: "$COLLECTION.find({ [$INPUT]: \"value\" })"
+    message: "NoSQL Injection vulnerability detected. Untrusted input used in NoSQL queries. Validate input types and avoid where operators with user data."
+    languages: ["javascript", "typescript"]
+    severity: "ERROR"
+    metadata:
+      cwe: "CWE-943"
+      owasp: "A03_2021-Injection"
+      category: "security"
+      technology: ["javascript", "typescript", "mongodb"]
+
+
+  - id: js-code-injection
+    patterns:
+      - pattern-either:
+          - pattern: eval($INPUT)
+          - pattern: new Function($INPUT)
+          - pattern: new Function($INPUT)()
+          - pattern: setTimeout($INPUT, ...)
+          - pattern: setInterval($INPUT, ...)
+          - pattern: require('vm').runInThisContext($INPUT)
+          - pattern: require('vm').runInNewContext($INPUT)
+      - pattern-not: eval("static_code")
+      - pattern-not: new Function("static_code")
+      - pattern-not: setTimeout("static_code", ...)
+    message: "Code injection vulnerability detected. Untrusted input ($INPUT) executed as code. Avoid eval, Function constructor, and similar dynamic code execution with user input."
+    languages: ["javascript", "typescript"]
+    severity: "ERROR"
+    metadata:
+      cwe: "CWE-95"
+      owasp: "A03_2021-Injection"
+      category: "security"
+      technology: ["javascript", "typescript"]
+
+  - id: js-ldap-injection
+    patterns:
+      - pattern-either:
+          - pattern: $LDAP.search($INPUT, ...)
+          - pattern: $LDAP.bind($INPUT, ...)
+          - pattern: $CLIENT.search("..." + $INPUT + "...", ...)
+          - pattern: $CLIENT.search(`...${$INPUT}...`, ...)
+    message: "LDAP Injection vulnerability detected. Untrusted input used in LDAP queries. Properly escape LDAP special characters."
+    languages: ["javascript", "typescript"]
+    severity: "WARNING"
+    metadata:
+      cwe: "CWE-90"
+      category: "security"
+
+  - id: js-xpath-injection
+    patterns:
+      - pattern-either:
+          - pattern: $DOC.evaluate($INPUT, ...)
+          - pattern: $XPATH.select($INPUT, ...)
+          - pattern: $XML.get($INPUT, ...)
+    message: "XPath Injection vulnerability detected. Untrusted input used in XPath expressions. Use parameterized XPath queries or input validation."
+    languages: ["javascript", "typescript"]
+    severity: "WARNING"
+    metadata:
+      cwe: "CWE-643"
+      category: "security"
