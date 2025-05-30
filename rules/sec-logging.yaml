@@ -1,0 +1,169 @@
+rules:
+  - id: js-missing-logging-auth-failure
+    languages: [javascript]
+    severity: WARNING
+    message: "Missing logging in authentication or access denial block, which may hinder security monitoring (A09:2021)."
+    metadata:
+      category: security
+      subcategory: logging
+      owasp: A09:2021
+    patterns:
+      - pattern-either:
+          - pattern: |
+              if (!($AUTH_CHECK)) {
+                $ACTION;
+              }
+          - pattern: |
+              if ($AUTH_CHECK === false) {
+                $ACTION;
+              }
+          - pattern: |
+              if ($AUTH_CHECK == false) {
+                $ACTION;
+              }
+      - pattern-not: |
+          if (!($AUTH_CHECK)) {
+            ...
+            $LOGGER.$METHOD(...);
+            ...
+          }
+      - pattern-not: |
+          if (!($AUTH_CHECK)) {
+            ...
+            console.log(...);
+            ...
+          }
+    metavariables:
+      AUTH_CHECK:
+        regex: (?i).*(auth|authenticated|login|signin|access|deny|restrict|privilege).*
+      ACTION:
+        regex: (?i).*(throw|return|res\.status|res\.send|res\.json|next|reject).*
+      LOGGER:
+        regex: (?i).*(logger|log|winston|bunyan|log4js|pino).*
+      METHOD:
+        regex: (?i).*(log|debug|info|warn|error).*
+    description: |
+      Detects authentication or access denial blocks such as `if (!isAuthenticated)` or
+      `if (userIsAuthorized === false)` without any logging statement inside the block.
+      This may prevent detection of unauthorized access attempts and violates OWASP A09:2021.
+      Examples of missing logging include missing calls to `logger.warn()`, `log.error()`,
+      or even missing `console.log()` after an auth failure.
+
+  - id: js-console-log-instead-of-logger
+    languages: [javascript]
+    severity: WARNING
+    message: "Use of console.log() instead of a structured logging framework, which is unsuitable for production (A09:2021)."
+    metadata:
+      category: security
+      subcategory: logging
+      owasp: A09:2021
+    patterns:
+      - pattern: console.log(...);
+    description: Identifies use of console.log() for logging, which lacks structure and control, making it inadequate for security monitoring in production.
+
+  - id: js-logging-sensitive-data
+    languages: [javascript]
+    severity: ERROR
+    message: "Logging of sensitive data (e.g., password, token, secret), which may expose confidential information (A09:2021)."
+    metadata:
+      category: security
+      subcategory: logging
+      owasp: A09:2021
+    patterns:
+      - pattern-either:
+          # Logging sensitive variable directly
+          - pattern: $LOGGER.$METHOD(..., $SENSITIVE, ...);
+          # Logging sensitive property of an object
+          - pattern: $LOGGER.$METHOD(..., $SENSITIVE.$PROPERTY, ...);
+          # Using console.log with sensitive variable
+          - pattern: console.log(..., $SENSITIVE, ...);
+          # Using console.log with sensitive property
+          - pattern: console.log(..., $SENSITIVE.$PROPERTY, ...);
+    metavariables:
+      SENSITIVE:
+        regex: (?i).*(password|token|secret|credential|key|authorization|apikey|privatekey).*
+      PROPERTY:
+        regex: (?i).*(password|token|secret|credential|key|authorization|apikey|privatekey).*
+      LOGGER:
+        regex: (?i).*(logger|log|winston|bunyan|log4js|pino).*
+      METHOD:
+        regex: (?i).*(log|debug|info|warn|error).*
+    description: |
+      Detects logging of sensitive information such as passwords, tokens,
+      API keys, or secrets using common logging frameworks or `console.log`.
+      Logging sensitive data can expose confidential information and
+      violates security best practices (OWASP A09:2021).
+
+  - id: html-unprotected-admin-routes
+    languages: [html]
+    severity: ERROR
+    message: "Unprotected admin or debug route exposed in HTML, which may allow unauthorized access (A09:2021)."
+    metadata:
+      category: security
+      subcategory: access-control
+      owasp: A09:2021
+    patterns:
+      - pattern-either:
+          - pattern: '<a ... href="$ROUTE" ...>'
+          - pattern: '<form ... action="$ROUTE" ...>'
+      - metavariable-regex:
+          metavariable: $ROUTE
+          regex: (?i).*(/admin|/debug|/internal|/api/admin|/api/debug).*
+      - pattern-not-inside: |
+          <script ...>
+            ...
+            $AUTH_CHECK
+            ...
+          </script>
+      - metavariable-regex:
+          metavariable: $AUTH_CHECK
+          regex: (?i).*(auth|authenticated|login|restrict|requireAuth).*
+    description: |
+      Identifies HTML links or forms pointing to admin/debug routes without client-side
+      authentication checks in script tags, risking unauthorized access.
+
+  - id: js-insecure-error-reporting
+    languages: [javascript]
+    severity: WARNING
+    message: "Use of alert(), console.log(), or document.write() for error reporting, which is insecure for production (A09:2021)."
+    metadata:
+      category: security
+      subcategory: logging
+      owasp: A09:2021
+    patterns:
+      - pattern-either:
+          - pattern: alert(...);
+          - pattern: console.log(...);
+          - pattern: document.write(...);
+      - pattern-inside: |
+          try {
+            ...
+          } catch ($ERROR) {
+            ...
+          }
+    description: |
+      Detects use of alert(), console.log(), or document.write() for error reporting inside
+      try-catch blocks, which is insecure and inadequate for production monitoring.
+
+  - id: js-missing-error-handler
+    languages: [javascript]
+    severity: WARNING
+    message: "Missing window.onerror or error tracking handler in client-side JavaScript, which may prevent error monitoring (A09:2021)."
+    metadata:
+      category: security
+      subcategory: logging
+      owasp: A09:2021
+    patterns:
+      - pattern-not: window.onerror = ...;
+      - pattern-not: window.addEventListener("error", ...);
+      - pattern-not: $TRACKER.init(...);
+      - pattern-inside: |
+          <script ...>
+            ...
+          </script>
+    metavariable-regex:
+      TRACKER: (?i).*(sentry|bugsnag|rollbar|trackjs)
+    description: |
+      Identifies client-side JavaScript embedded in HTML <script> tags without
+      window.onerror or third-party error tracking initialization (e.g., Sentry),
+      risking unmonitored errors and failures.
