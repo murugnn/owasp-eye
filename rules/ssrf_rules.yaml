@@ -1,0 +1,95 @@
+rules:
+  # --- Python SSRF Detection ---
+  - id: ssrf-python
+    languages: [python]
+    severity: ERROR
+    message: "Possible SSRF: Untrusted input sent to HTTP request method"
+    metadata:
+      owasp: "A10:2021 - Server-Side Request Forgery (SSRF)"
+      category: security
+    pattern-either:
+      - pattern: requests.get($URL)
+      - pattern: requests.post($URL)
+      - pattern: requests.put($URL)
+      - pattern: requests.delete($URL)
+      - pattern: urllib.request.urlopen($URL)
+    pattern-inside: |
+      def $FUNC(...):
+        $URL = request.args.get(...)
+        ...
+    pattern-not: |
+      if $URL.startswith("https://trusted.com"):
+        ...
+    fix: "# ⚠️ Add domain whitelist or URL sanitization here"
+
+  # --- JavaScript/Node.js SSRF Detection ---
+  - id: ssrf-nodejs
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "Possible SSRF: Untrusted user input sent to request method"
+    metadata:
+      owasp: "A10:2021 - Server-Side Request Forgery (SSRF)"
+      category: security
+    pattern-either:
+      - pattern: axios($URL)
+      - pattern: axios.get($URL)
+      - pattern: axios.post($URL)
+      - pattern: fetch($URL)
+      - pattern: http.get($URL)
+      - pattern: http.request($URL)
+    pattern-inside: |
+      function $FUNC(req, res) {
+        const $URL = req.query.$PARAM;
+        ...
+      }
+    pattern-not: |
+      if ($URL.startsWith("https://trusted.com")) {
+        ...
+      }
+    fix: "// ⚠️ Whitelist domain before making request"
+
+  # --- Java SSRF Detection ---
+  - id: ssrf-java
+    languages: [java]
+    severity: ERROR
+    message: "Possible SSRF: Unvalidated user input in URL-based HTTP request"
+    metadata:
+      owasp: "A10:2021 - Server-Side Request Forgery (SSRF)"
+      category: security
+    pattern-either:
+      - pattern: new URL($URL)
+      - pattern: HttpClientBuilder.create().build().execute(new HttpGet($URL))
+      - pattern: HttpURLConnection conn = (HttpURLConnection) $URL.openConnection()
+    pattern-inside: |
+      public $RETURNTYPE $FUNC(HttpServletRequest $REQ, ...) {
+        String $URL = $REQ.getParameter(...);
+        ...
+      }
+    pattern-not: |
+      if ($URL.startsWith("https://trusted.com")) {
+        ...
+      }
+    fix: "// ⚠️ Add domain validation or blocklist before URL usage"
+
+  # --- Go SSRF Detection ---
+  - id: ssrf-go
+    languages: [go]
+    severity: ERROR
+    message: "Possible SSRF: External request using untrusted input"
+    metadata:
+      owasp: "A10:2021 - Server-Side Request Forgery (SSRF)"
+      category: security
+    pattern-either:
+      - pattern: http.Get($URL)
+      - pattern: http.Post($URL, ...)
+      - pattern: http.NewRequest("GET", $URL, ...)
+    pattern-inside: |
+      func $FUNC(w http.ResponseWriter, r *http.Request) {
+        $URL := r.URL.Query().Get(...)
+        ...
+      }
+    pattern-not: |
+      if strings.HasPrefix($URL, "https://trusted.com") {
+        ...
+      }
+    fix: "// ⚠️ Always check domain before making outbound requests"
