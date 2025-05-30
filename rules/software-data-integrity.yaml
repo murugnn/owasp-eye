@@ -1,0 +1,49 @@
+rules:
+  - id: insecure-dynamic-script-load
+    languages: [javascript]
+    message: "Dynamically loading scripts without integrity or SRI can lead to integrity failures."
+    severity: WARNING
+    patterns:
+      - pattern-either:
+          - pattern: |
+              var script = document.createElement('script');
+              script.src = $URL;
+              document.head.appendChild(script);
+          - pattern: |
+              const script = document.createElement("script");
+              script.src = $URL;
+              document.body.appendChild(script);
+    metadata:
+      owasp: A08:2021 - Software and Data Integrity Failures
+      category: security
+      technology: javascript
+
+  - id: missing-subresource-integrity
+    languages: [html]
+    message: "External script is loaded without Subresource Integrity (SRI) attribute."
+    severity: WARNING
+    pattern-regex: '<script[^>]+src=[""][^"]+["][^>]*>(?!.*integrity)'
+    metadata:
+      owasp: A08:2021 - Software and Data Integrity Failures
+      category: security
+      technology: html
+
+  - id: use-of-eval-for-code-execution
+    languages: [javascript]
+    message: "Use of eval() to execute code can lead to integrity failures if data is not trusted."
+    severity: ERROR
+    pattern: eval($CODE)
+    metadata:
+      owasp: A08:2021 - Software and Data Integrity Failures
+      category: security
+      technology: javascript
+
+  - id: load-external-js-from-untrusted-source
+    languages: [html]
+    message: "Script is loaded from an untrusted external source (http) without integrity verification."
+    severity: WARNING
+    pattern-regex: '<script[^>]+src=["\"]http://[^"\"]+["\"]'
+    metadata:
+      owasp: A08:2021 - Software and Data Integrity Failures
+      category: security
+      technology: html
