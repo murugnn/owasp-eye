@@ -1,0 +1,173 @@
+rules:
+  # === UNIVERSAL RULES ===
+  # -- Session ID in URL --
+  - id: a07-session-id-in-url
+    languages: [python, javascript, java, go, php, ruby]
+    severity: WARNING
+    message: "Session ID or auth token should not be passed in URL (use cookies or headers)"
+    pattern-regex: '.*\?.*(sessionid|token|auth|sid|jwt).*='
+    metadata:
+      owasp: "A07:2021 - Session ID exposure in URL"
+
+  # -- Weak hash functions --
+  - id: a07-insecure-password-hash
+    languages: [python, java, javascript, php, ruby]
+    severity: ERROR
+    message: "Insecure password hashing algorithm detected"
+    pattern-either:
+      - pattern: hashlib.md5(...)
+      - pattern: hashlib.sha1(...)
+      - pattern: MessageDigest.getInstance("MD5")
+      - pattern: crypto.createHash('md5')
+      - pattern: crypto.createHash('sha1')
+      - pattern: password_hash(..., PASSWORD_DEFAULT) # PHP
+    metadata:
+      owasp: "A07:2021 - Weak hash function"
+
+  # === HARD-CODED SECRETS & DICTIONARY CHECK ===
+  - id: a07-hardcoded-passwords
+    languages: [python, java, javascript, go, php, ruby]
+    severity: ERROR
+    message: "Hardcoded credential detected (consider using environment variables or secrets manager)"
+    pattern-regex: '(password|passwd|pwd|secret|key|token)\s*[=:]\s*[\"\'][a-zA-Z0-9_!@#$%^&*]{4,}[\"\']'
+    metadata:
+      owasp: "A07:2021 - Hardcoded secrets"
+
+  # === PER LANGUAGE ===
+
+  # ==== PYTHON ====
+  - id: a07-python-plaintext-password-comparison
+    languages: [python]
+    severity: ERROR
+    message: "Comparing user password directly instead of verifying hashed version"
+    pattern: |
+      if $REQ.form['password'] == $STORED:
+    metadata:
+      owasp: "A07:2021 - Plaintext password comparison"
+
+  - id: a07-python-missing-auth-middleware
+    languages: [python]
+    severity: WARNING
+    message: "Missing authentication decorator or middleware in route handler"
+    pattern: |
+      @app.route("/$ROUTE")
+      def $FUNC(...):
+        ...
+    pattern-not: |
+      @login_required
+    metadata:
+      owasp: "A07:2021 - Missing auth middleware"
+
+  # ==== JAVASCRIPT ====
+  - id: a07-js-missing-auth-middleware
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "Missing authentication check on sensitive route"
+    pattern: |
+      app.get("/$ROUTE", (req, res) => {
+        ...
+      })
+    pattern-not: app.use(authenticate)
+    metadata:
+      owasp: "A07:2021 - Missing route authentication"
+
+  - id: a07-js-plaintext-password
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "Plaintext password used in comparison - hash instead"
+    pattern: |
+      if(req.body.password === user.password) {
+        ...
+      }
+    metadata:
+      owasp: "A07:2021 - Plaintext password comparison"
+
+  # ==== JAVA ====
+  - id: a07-java-missing-auth-filter
+    languages: [java]
+    severity: WARNING
+    message: "Route or servlet missing auth filter or check"
+    pattern: |
+      @RequestMapping("/$ROUTE")
+      public String $FUNC(...) {
+        ...
+      }
+    pattern-not: hasRole("ROLE_USER")
+    metadata:
+      owasp: "A07:2021 - Missing authorization"
+
+  - id: a07-java-insecure-session-id
+    languages: [java]
+    severity: ERROR
+    message: "Insecure random function used to generate session ID"
+    pattern: Random $RND = new Random();
+    metadata:
+      owasp: "A07:2021 - Predictable session token"
+
+  # ==== GO ====
+  - id: a07-go-missing-auth-check
+    languages: [go]
+    severity: WARNING
+    message: "Route defined without authentication middleware"
+    pattern: |
+      http.HandleFunc("/$ROUTE", func(w http.ResponseWriter, r *http.Request) {
+        ...
+      })
+    pattern-not: AuthMiddleware(...)
+    metadata:
+      owasp: "A07:2021 - Missing authentication in route"
+
+  - id: a07-go-weak-password-compare
+    languages: [go]
+    severity: ERROR
+    message: "Password compared in plaintext - use bcrypt.CompareHashAndPassword"
+    pattern: |
+      if r.FormValue("password") == storedPassword {
+        ...
+      }
+    metadata:
+      owasp: "A07:2021 - Plaintext password comparison"
+
+  # ==== PHP ====
+  - id: a07-php-missing-auth
+    languages: [php]
+    severity: WARNING
+    message: "Route appears to lack auth check"
+    pattern: |
+      if ($_SERVER['REQUEST_URI'] == '/admin') {
+        ...
+      }
+    pattern-not: isset($_SESSION['user'])
+    metadata:
+      owasp: "A07:2021 - No auth check for PHP route"
+
+  - id: a07-php-insecure-hash
+    languages: [php]
+    severity: ERROR
+    message: "Insecure password hash algorithm"
+    pattern: md5($PASSWORD)
+    metadata:
+      owasp: "A07:2021 - Weak hashing algorithm"
+
+  # ==== RUBY ====
+  - id: a07-ruby-plaintext-password
+    languages: [ruby]
+    severity: ERROR
+    message: "Plaintext password comparison in Ruby (use bcrypt/has_secure_password)"
+    pattern: |
+      if params[:password] == user.password
+    metadata:
+      owasp: "A07:2021 - Plaintext password comparison"
+
+  - id: a07-ruby-missing-before_action
+    languages: [ruby]
+    severity: WARNING
+    message: "Missing 'before_action :authenticate_user!' in Rails controller"
+    pattern: |
+      class $CONTROLLER < ApplicationController
+        def $ACTION
+          ...
+        end
+    pattern-not: before_action :authenticate_user!
+    metadata:
+      owasp: "A07:2021 - No route-level authentication"
