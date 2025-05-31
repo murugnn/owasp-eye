@@ -72,31 +72,61 @@ OWASP Eye is a lightweight, browser-accessible vulnerability scanner designed to
 
 ```bash
     git clone https://github.com/murugnn/owasp-eye.git
-    cd owasp-eye   
+    cd owasp-eye 
 ```
 
 2. Install the required dependencies
 
 ```bash
-    pip install requests flask  beautifulsoup4 lxm semgrep
+    pip install -r requirements.txt
 ```
 
-## Usage (locally)
+## Local Usage
+You can perform both SAST and DAST from the terminal locally
+
+
+### For SAST
+
+Install semgrep. You should have it already if you installed all the dependencies in `requirements.txt`
+
+Place the source codes you want to test in the folder `target/`
+
+Open a terminal and execute the following command
 
 ```bash
     semgrep --config=rules/ target/
 ```
 
+Semgrep will go through the code, checking for any matches without our ccustom ruleset of vulnerability patterns, and will show any possible errors
+
+### For DAST
+
+```
+# Basic scan
+python scanner.py http://example.com
+
+# With custom timeout
+python scanner.py http://example.com --timeout 15
+```
+
+
 ## Usage on web
 
+### Backend server
+In the root folder
 ```bash
   pip install -r requirements.txt
   python server.py
 ```
+
+### Frontend
 ```bash
+  cd frontend
   npm install --legacy-peer-deps
   npm run dev
 ```
+
+The frontend will be hostel at `http://localhost:3000`
 
 ## 🧪 Testing and Validation
 
