@@ -66,7 +66,7 @@ OWASP Eye is a lightweight, browser-accessible vulnerability scanner designed to
 - Flask
 - semgrep
 
-## Installation
+## Installation if running locally
 
 1. Clone the repository
 
@@ -81,7 +81,7 @@ OWASP Eye is a lightweight, browser-accessible vulnerability scanner designed to
     pip install requests flask  beautifulsoup4 lxm semgrep
 ```
 
-## Usage
+## Usage (locally)
 
 ```bash
     semgrep --config=rules/ target/
@@ -120,6 +120,4 @@ OWASP Eye is an open, educational tool that empowers students and developers to 
 ## 📄 License
 
 This project is open-source and available under the [MIT License](LICENSE).
-
-\
 
