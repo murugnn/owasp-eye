@@ -3,7 +3,10 @@
 OWASP Eye is a lightweight, browser-accessible vulnerability scanner designed to help developers and students learn secure coding practices through hands-on static and dynamic analysis. The tool focuses on identifying vulnerabilities aligned with the OWASP Top 10 in frontend web code and deployed web applications.
 
 ---
-
+ ![Image Alt](https://github.com/murugnn/owasp-eye/blob/5eebf9dbf9dc16c289b23cee3ca8a614a0a8d8a6/OWASP_EYE1.jpg)
+ ![Image Alt](https://github.com/murugnn/owasp-eye/blob/5eebf9dbf9dc16c289b23cee3ca8a614a0a8d8a6/OWASP_EYE2.jpg)
+ ![Image Alt](https://github.com/murugnn/owasp-eye/blob/5eebf9dbf9dc16c289b23cee3ca8a614a0a8d8a6/owasp_eye3.jpg)
+ ![Image Alt](https://github.com/murugnn/owasp-eye/blob/5eebf9dbf9dc16c289b23cee3ca8a614a0a8d8a6/owasp_eye4.jpg)
 ## 📌 Project Highlights
 
 - **Scans HTML/JavaScript snippets and live web URLs**
