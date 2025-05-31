@@ -27,7 +27,7 @@ rules:
     languages: [python, java, javascript, go, php, ruby]
     severity: ERROR
     message: "Hardcoded credential detected (consider using environment variables or secrets manager)"
-    pattern-regex: '(password|passwd|pwd|secret|key|token)\s*[=:]\s*[\"\'][a-zA-Z0-9_!@#$%^&*]{4,}[\"\']'
+    pattern-regex: '(password|passwd|pwd|secret|key|token)\s*[=:]\s*[\"\"][a-zA-Z0-9_!@#$%^&*]{4,}[\"\"]'
     metadata:
       owasp: "A07:2021 - Hardcoded secrets"
 
