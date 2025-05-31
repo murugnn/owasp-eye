@@ -1,0 +1,555 @@
+rules:
+  # ============================================================================
+  # OWASP A01:2021 - Broken Access Control (Misconfiguration Aspects)
+  # ============================================================================
+  
+  - id: missing-authentication-middleware
+    message: "Route defined without authentication middleware, potentially allowing unauthorized access"
+    severity: ERROR
+    languages:
+      - javascript
+    patterns:
+      - pattern-inside: |
+          app.$METHOD($PATH, ...)
+      - pattern-not-inside: |
+          app.$METHOD($PATH, $AUTH_MIDDLEWARE, ...)
+      - pattern: app.$METHOD($PATH, $HANDLER)
+    metadata:
+      category: security
+      owasp: "A01:2021 - Broken Access Control"
+      cwe: "CWE-862: Missing Authorization"
+
+  - id: cors-permissive-origins
+    message: "CORS configured with overly permissive origins allowing potential unauthorized cross-origin requests"
+    severity: ERROR
+    languages:
+      - javascript
+    pattern-either:
+      - pattern: |
+          app.use(cors({
+            origin: '*'
+          }))
+      - pattern: |
+          res.setHeader('Access-Control-Allow-Origin', '*')
+      - pattern: |
+          res.header('Access-Control-Allow-Origin', '*')
+      - pattern: |
+          cors({
+            $...OPTIONS,
+            origin: true,
+            $...MORE_OPTIONS
+          })
+    metadata:
+      category: security
+      owasp: "A01:2021 - Broken Access Control"
+      cwe: "CWE-942: Permissive Cross-domain Policy"
+
+  - id: express-trust-proxy-unsafe
+    message: "Express trust proxy configured unsafely, potentially allowing IP spoofing attacks"
+    severity: WARNING
+    languages:
+      - javascript
+    pattern-either:
+      - pattern: app.set('trust proxy', true)
+      - pattern: app.set('trust proxy', 1)
+    metadata:
+      category: security
+      owasp: "A01:2021 - Broken Access Control"
+      cwe: "CWE-348: Use of Less Trusted Source"
+
+  # ============================================================================
+  # OWASP A02:2021 - Cryptographic Failures (Misconfiguration Aspects)
+  # ============================================================================
+  
+  - id: weak-crypto-algorithms
+    message: "Weak cryptographic algorithm detected that should not be used in production"
+    severity: ERROR
+    languages:
+      - javascript
+    pattern-either:
+      - pattern: crypto.createHash('md5')
+      - pattern: crypto.createHash('sha1')
+      - pattern: crypto.createCipher($ALG, ...)
+      - pattern: |
+          bcrypt.hash($PASSWORD, 1)
+      - pattern: |
+          bcrypt.hash($PASSWORD, $ROUNDS)
+    metadata:
+      category: security
+      owasp: "A02:2021 - Cryptographic Failures"
+      cwe: "CWE-327: Use of Broken Cryptographic Algorithm"
+
+  - id: hardcoded-crypto-keys
+    message: "Hardcoded cryptographic keys or secrets detected in source code"
+    severity: ERROR
+    languages:
+      - javascript
+    pattern-regex: |
+      (?i)(secret|key|password|token|jwt_secret|encryption_key)\s*[:=]\s*['"][a-zA-Z0-9+/=]{16,}['"]
+    metadata:
+      category: security
+      owasp: "A02:2021 - Cryptographic Failures"
+      cwe: "CWE-798: Use of Hard-coded Credentials"
+
+  - id: insecure-session-config
+    message: "Session configuration lacks secure settings (secure, httpOnly, sameSite)"
+    severity: ERROR
+    languages:
+      - javascript
+    patterns:
+      - pattern-inside: |
+          session({
+            $...OPTIONS
+          })
+      - pattern-not-inside: |
+          session({
+            $...OPTIONS,
+            cookie: {
+              $...COOKIE_OPTIONS,
+              secure: true,
+              $...MORE_COOKIE_OPTIONS
+            },
+            $...MORE_OPTIONS
+          })
+    metadata:
+      category: security
+      owasp: "A02:2021 - Cryptographic Failures"
+      cwe: "CWE-614: Sensitive Cookie Without 'Secure' Flag"
+
+  # ============================================================================
+  # OWASP A03:2021 - Injection (Misconfiguration Aspects)
+  # ============================================================================
+  
+  - id: eval-usage
+    message: "Use of eval() function can lead to code injection vulnerabilities"
+    severity: ERROR
+    languages:
+      - javascript
+    pattern-either:
+      - pattern: eval($CODE)
+      - pattern: Function($CODE)
+      - pattern: new Function($CODE)
+      - pattern: setTimeout($CODE, ...)
+      - pattern: setInterval($CODE, ...)
+    metadata:
+      category: security
+      owasp: "A03:2021 - Injection"
+      cwe: "CWE-95: Improper Neutralization of Directives in Code"
+
+  - id: sql-injection-potential
+    message: "Potential SQL injection vulnerability through string concatenation"
+    severity: ERROR
+    languages:
+      - javascript
+    pattern-either:
+      - pattern: |
+          $QUERY = "SELECT * FROM " + $TABLE
+      - pattern: |
+          $QUERY = `SELECT * FROM ${$TABLE}`
+      - pattern: |
+          db.query("SELECT * FROM " + $TABLE)
+      - pattern: |
+          connection.query(`INSERT INTO ${$TABLE}`)
+    metadata:
+      category: security
+      owasp: "A03:2021 - Injection"
+      cwe: "CWE-89: SQL Injection"
+
+  # ============================================================================
+  # OWASP A04:2021 - Insecure Design (Misconfiguration Aspects)
+  # ============================================================================
+  
+  - id: missing-rate-limiting
+    message: "API endpoints without rate limiting are vulnerable to abuse and DoS attacks"
+    severity: WARNING
+    languages:
+      - javascript
+    patterns:
+      - pattern-inside: |
+          app.$METHOD($PATH, ...)
+      - pattern-not-inside: |
+          app.use(rateLimit(...))
+      - pattern-not-inside: |
+          app.use($PATH, rateLimit(...))
+      - pattern: app.$METHOD($PATH, $HANDLER)
+    metadata:
+      category: security
+      owasp: "A04:2021 - Insecure Design"
+      cwe: "CWE-770: Allocation of Resources Without Limits"
+
+  - id: missing-input-validation
+    message: "Request handling without input validation middleware"
+    severity: WARNING
+    languages:
+      - javascript
+    patterns:
+      - pattern-inside: |
+          app.post($PATH, ...)
+      - pattern-not-inside: |
+          app.post($PATH, $VALIDATOR, ...)
+      - pattern: app.post($PATH, $HANDLER)
+    metadata:
+      category: security
+      owasp: "A04:2021 - Insecure Design"
+      cwe: "CWE-20: Improper Input Validation"
+
+  # ============================================================================
+  # OWASP A05:2021 - Security Misconfiguration
+  # ============================================================================
+  
+  - id: exposed-debug-features
+    message: "Development/debug features enabled in production code"
+    severity: ERROR
+    languages:
+      - javascript
+    pattern-either:
+      - pattern: app.use(errorhandler())
+      - pattern: app.use(errorhandler($OPTIONS))
+      - pattern: require('debug')
+      - pattern: import $VAR from 'debug'
+      - pattern: console.log($...ARGS)
+      - pattern: console.error($...ARGS)
+      - pattern: console.warn($...ARGS)
+    metadata:
+      category: security
+      owasp: "A05:2021 - Security Misconfiguration"
+      cwe: "CWE-489: Active Debug Code"
+
+  - id: missing-security-headers
+    message: "Missing essential security headers middleware (Helmet.js)"
+    severity: ERROR
+    languages:
+      - javascript
+    patterns:
+      - pattern-inside: |
+          const express = require('express')
+          $...
+          const app = express()
+          $...
+      - pattern-not-inside: |
+          app.use(helmet(...))
+      - pattern-not-inside: |
+          app.disable('x-powered-by')
+      - pattern: app.listen($PORT)
+    metadata:
+      category: security
+      owasp: "A05:2021 - Security Misconfiguration"
+      cwe: "CWE-16: Configuration"
+
+  - id: directory-listing-enabled
+    message: "Directory listing enabled via serve-index middleware"
+    severity: ERROR
+    languages:
+      - javascript
+    pattern-either:
+      - pattern: |
+          const serveIndex = require('serve-index')
+          $...
+          app.use(serveIndex(...))
+      - pattern: |
+          import serveIndex from 'serve-index'
+          $...
+          app.use(serveIndex(...))
+    metadata:
+      category: security
+      owasp: "A05:2021 - Security Misconfiguration"
+      cwe: "CWE-548: Information Exposure Through Directory Listing"
+
+  - id: dangerous-http-methods
+    message: "HTTP method override middleware allows dangerous method spoofing"
+    severity: WARNING
+    languages:
+      - javascript
+    pattern-either:
+      - pattern: app.use(methodOverride())
+      - pattern: app.use(methodOverride($OPTIONS))
+    metadata:
+      category: security
+      owasp: "A05:2021 - Security Misconfiguration"
+      cwe: "CWE-749: Exposed Dangerous Method"
+
+  - id: default-error-pages
+    message: "Default error handling may expose sensitive information"
+    severity: WARNING
+    languages:
+      - javascript
+    patterns:
+      - pattern-inside: |
+          const express = require('express')
+          $...
+      - pattern-not-inside: |
+          app.use(function(err, req, res, next) {
+            $...BODY
+          })
+      - pattern: app.listen($PORT)
+    metadata:
+      category: security
+      owasp: "A05:2021 - Security Misconfiguration"
+      cwe: "CWE-209: Information Exposure Through Error Messages"
+
+  # ============================================================================
+  # OWASP A06:2021 - Vulnerable and Outdated Components
+  # ============================================================================
+  
+  - id: outdated-dependencies
+    message: "Potentially vulnerable package versions detected"
+    severity: WARNING
+    languages:
+      - json
+    patterns:
+      - pattern-inside: |
+          {
+            "dependencies": {
+              $...DEPS
+            }
+          }
+      - pattern-regex: |
+          "express":\s*"[0-4]\."
+    metadata:
+      category: security
+      owasp: "A06:2021 - Vulnerable and Outdated Components"
+      cwe: "CWE-1104: Use of Unmaintained Third Party Components"
+
+  # ============================================================================
+  # OWASP A07:2021 - Identification and Authentication Failures
+  # ============================================================================
+  
+  - id: weak-password-requirements
+    message: "Weak or missing password validation requirements"
+    severity: WARNING
+    languages:
+      - javascript
+    pattern-either:
+      - pattern: |
+          if ($PASSWORD.length < 8) {
+            $...BODY
+          }
+      - pattern: |
+          if ($PASSWORD.length >= 6) {
+            $...BODY
+          }
+    metadata:
+      category: security
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      cwe: "CWE-521: Weak Password Requirements"
+
+  - id: missing-password-hashing
+    message: "Password stored without proper hashing"
+    severity: ERROR
+    languages:
+      - javascript
+    patterns:
+      - pattern-inside: |
+          $USER.password = $PASSWORD
+      - pattern-not-inside: |
+          $USER.password = bcrypt.hash($PASSWORD, ...)
+      - pattern-not-inside: |
+          $USER.password = await bcrypt.hash($PASSWORD, ...)
+    metadata:
+      category: security
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      cwe: "CWE-256: Unprotected Storage of Credentials"
+
+  - id: jwt-weak-secret
+    message: "JWT signed with weak or hardcoded secret"
+    severity: ERROR
+    languages:
+      - javascript
+    pattern-either:
+      - pattern: jwt.sign($PAYLOAD, "secret")
+      - pattern: jwt.sign($PAYLOAD, "your-secret-key")
+      - pattern: |
+          jwt.sign($PAYLOAD, $SECRET)
+    metadata:
+      category: security
+      owasp: "A07:2021 - Identification and Authentication Failures"
+      cwe: "CWE-798: Use of Hard-coded Credentials"
+
+  # ============================================================================
+  # OWASP A08:2021 - Software and Data Integrity Failures
+  # ============================================================================
+  
+  - id: unsafe-deserialization
+    message: "Unsafe deserialization of user input"
+    severity: ERROR
+    languages:
+      - javascript
+    pattern-either:
+      - pattern: JSON.parse($USER_INPUT)
+      - pattern: eval($USER_INPUT)
+      - pattern: |
+          const obj = $USER_INPUT
+          eval(obj.code)
+    metadata:
+      category: security
+      owasp: "A08:2021 - Software and Data Integrity Failures"
+      cwe: "CWE-502: Deserialization of Untrusted Data"
+
+  - id: missing-integrity-checks
+    message: "External resources loaded without integrity checks"
+    severity: WARNING
+    languages:
+      - html
+    patterns:
+      - pattern-inside: |
+          <script src="$URL">
+      - pattern-not-inside: |
+          <script src="$URL" integrity="$HASH">
+      - pattern: <script src="$URL"></script>
+    metadata:
+      category: security
+      owasp: "A08:2021 - Software and Data Integrity Failures"
+      cwe: "CWE-353: Missing Support for Integrity Check"
+
+  # ============================================================================
+  # OWASP A09:2021 - Security Logging and Monitoring Failures
+  # ============================================================================
+  
+  - id: missing-security-logging
+    message: "Authentication failures not properly logged"
+    severity: WARNING
+    languages:
+      - javascript
+    patterns:
+      - pattern-inside: |
+          if (!$USER || !$VALID) {
+            $...BODY
+          }
+      - pattern-not-inside: |
+          logger.warn($MESSAGE)
+      - pattern-not-inside: |
+          console.log($MESSAGE)
+    metadata:
+      category: security
+      owasp: "A09:2021 - Security Logging and Monitoring Failures"
+      cwe: "CWE-778: Insufficient Logging"
+
+  - id: sensitive-data-logging
+    message: "Potentially sensitive data being logged"
+    severity: ERROR
+    languages:
+      - javascript
+    pattern-either:
+      - pattern: console.log($...ARGS, $PASSWORD, $...MORE_ARGS)
+      - pattern: logger.info($...ARGS, $TOKEN, $...MORE_ARGS)
+      - pattern: console.log("Password- " + $PASSWORD)
+    metadata:
+      category: security
+      owasp: "A09:2021 - Security Logging and Monitoring Failures"
+      cwe: "CWE-532: Information Exposure Through Log Files"
+
+  # ============================================================================
+  # OWASP A10:2021 - Server-Side Request Forgery (SSRF)
+  # ============================================================================
+  
+  - id: ssrf-vulnerability
+    message: "Potential SSRF vulnerability through unvalidated URL requests"
+    severity: ERROR
+    languages:
+      - javascript
+    pattern-either:
+      - pattern: |
+          fetch($USER_URL)
+      - pattern: |
+          axios.get($USER_URL)
+      - pattern: |
+          request($USER_URL)
+      - pattern: |
+          http.get($USER_URL)
+    metadata:
+      category: security
+      owasp: "A10:2021 - Server-Side Request Forgery"
+      cwe: "CWE-918: Server-Side Request Forgery"
+
+  # ============================================================================
+  # HTML-Specific Security Misconfigurations
+  # ============================================================================
+  
+  - id: missing-csp-html
+    message: "Missing Content Security Policy (CSP) meta tag"
+    severity: ERROR
+    languages:
+      - html
+    patterns:
+      - pattern-inside: |
+          <html>
+          $...
+          </html>
+      - pattern-not-inside: |
+          <meta http-equiv="Content-Security-Policy" content="$CSP">
+      - pattern: <head>$...CONTENT</head>
+    metadata:
+      category: security
+      owasp: "A05:2021 - Security Misconfiguration"
+      cwe: "CWE-1021: Improper Restriction of Rendered UI Layers"
+
+  - id: inline-js-no-csp
+    message: "Inline JavaScript without CSP protection"
+    severity: WARNING
+    languages:
+      - html
+    patterns:
+      - pattern-inside: |
+          <html>
+          $...
+          </html>
+      - pattern-not-inside: |
+          <meta http-equiv="Content-Security-Policy" content="$CSP">
+      - pattern-either:
+          - pattern: <script>$...CODE</script>
+          - pattern: <$TAG onclick="$CODE">
+          - pattern: <$TAG onload="$CODE">
+    metadata:
+      category: security
+      owasp: "A03:2021 - Injection"
+      cwe: "CWE-79: Cross-site Scripting"
+
+  - id: missing-frame-protection
+    message: "Missing X-Frame-Options or frame-ancestors directive"
+    severity: WARNING
+    languages:
+      - html
+    patterns:
+      - pattern-inside: |
+          <html>
+          $...
+          </html>
+      - pattern-not-inside: |
+          <meta http-equiv="X-Frame-Options" content="$OPTION">
+      - pattern-not-inside: |
+          <meta http-equiv="Content-Security-Policy" content="$...frame-ancestors$...">
+      - pattern: <head>$...CONTENT</head>
+    metadata:
+      category: security
+      owasp: "A05:2021 - Security Misconfiguration"
+      cwe: "CWE-1021: Improper Restriction of Rendered UI Layers"
+
+  - id: embedded-secrets-html
+    message: "Potential secrets embedded in HTML"
+    severity: ERROR
+    languages:
+      - html
+    pattern-regex: |
+      (?i)(api[_-]?key|secret|password|token|auth[_-]?token|private[_-]?key)['"]*\s*[=:]\s*['"][a-zA-Z0-9_\-]{16,}['"]
+    metadata:
+      category: security
+      owasp: "A02:2021 - Cryptographic Failures"
+      cwe: "CWE-798: Use of Hard-coded Credentials"
+
+  - id: unsafe-inline-styles
+    message: "Inline styles without CSP style-src protection"
+    severity: INFO
+    languages:
+      - html
+    patterns:
+      - pattern-inside: |
+          <html>
+          $...
+          </html>
+      - pattern-not-inside: |
+          <meta http-equiv="Content-Security-Policy" content="$...style-src$...">
+      - pattern: <$TAG style="$STYLES">
+    metadata:
+      category: security
+      owasp: "A05:2021 - Security Misconfiguration"
+      cwe: "CWE-1021: Improper Restriction of Rendered UI Layers"
