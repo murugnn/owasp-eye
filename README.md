@@ -135,11 +135,18 @@ The frontend will be hostel at `http://localhost:3000`
 - Rule-based detection confirmed with common insecure code patterns
 
 ---
- ![Image Alt](https://github.com/murugnn/owasp-eye/blob/5eebf9dbf9dc16c289b23cee3ca8a614a0a8d8a6/owasp_eye3.jpg)
- ![Image Alt](https://github.com/murugnn/owasp-eye/blob/5eebf9dbf9dc16c289b23cee3ca8a614a0a8d8a6/owasp_eye4.jpg)
- ![Image Alt](https://github.com/murugnn/owasp-eye/blob/5eebf9dbf9dc16c289b23cee3ca8a614a0a8d8a6/OWASP_EYE1.jpg)
- ![Image Alt](https://github.com/murugnn/owasp-eye/blob/5eebf9dbf9dc16c289b23cee3ca8a614a0a8d8a6/OWASP_EYE2.jpg)
+ 
+ ![Image 1](screenshots/owasp_eye3.jpg)
 
+ ![Image 2](screenshots/owasp_eye4.jpg)
+
+ ---
+
+ ![Image 3](screenshots/OWASP_EYE1.jpg)
+
+ ![Image 4](screenshots/OWASP_EYE2.jpg)
+
+ ---
 
 ## 🔮 Scalability & Future Enhancements
 
