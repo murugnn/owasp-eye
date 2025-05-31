@@ -136,11 +136,15 @@ The frontend will be hostel at `http://localhost:3000`
 
 ---
  
+ ## Command-line Testing
+
  ![Image 1](screenshots/owasp_eye3.jpg)
 
  ![Image 2](screenshots/owasp_eye4.jpg)
 
  ---
+
+ ## UI Overview
 
  ![Image 3](screenshots/OWASP_EYE1.jpg)
 
