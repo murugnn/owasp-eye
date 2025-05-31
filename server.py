@@ -23,6 +23,9 @@ import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import uuid
 import logging
+import os
+import shutil
+import tempfile
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -34,6 +37,10 @@ CORS(app)  # Enable CORS for cross-origin requests
 # Global storage for scan results (in production, use a database)
 scan_results = {}
 active_scans = {}
+
+sast_results = {}
+active_sast_scans = {}
+
 
 class DASTScanner:
     def __init__(self, target_url, scan_id, timeout=10):
@@ -574,7 +581,256 @@ class DASTScanner:
         total_score = sum(score_map.get(v['severity'], 0) for v in self.vulnerabilities)
         return min(total_score, 100)  # Cap at 100
 
-
+class SASTScanner:
+    def __init__(self, source_code, scan_id, language='javascript'):
+        self.source_code = source_code
+        self.scan_id = scan_id
+        self.language = language
+        self.vulnerabilities = []
+        self.scan_status = 'running'
+        self.start_time = datetime.now()
+        self.current_step = 'Initializing'
+        self.target_dir = None
+        
+    def log_vulnerability(self, check_id, severity, message, metadata=None, file_path=None, line_info=None):
+        """Log a discovered vulnerability"""
+        vuln = {
+            'id': str(uuid.uuid4()),
+            'check_id': check_id,
+            'severity': severity,
+            'message': message,
+            'metadata': metadata or {},
+            'file_path': file_path,
+            'line_info': line_info,
+            'discovered_at': datetime.now().isoformat()
+        }
+        self.vulnerabilities.append(vuln)
+        logger.info(f"SAST Vulnerability found: {check_id} - {severity}")
+        
+    def update_status(self, step):
+        """Update current scanning step"""
+        self.current_step = step
+        if self.scan_id in active_sast_scans:
+            active_sast_scans[self.scan_id]['current_step'] = step
+            active_sast_scans[self.scan_id]['vulnerabilities_found'] = len(self.vulnerabilities)
+    
+    def setup_target_directory(self):
+        """Create target directory and save source code"""
+        try:
+            self.update_status("Setting up target directory")
+            
+            # Create target directory if it doesn't exist
+            if not os.path.exists('target'):
+                os.makedirs('target')
+            
+            # Write source code to main.js
+            target_file = os.path.join('target', 'main.js')
+            with open(target_file, 'w', encoding='utf-8') as f:
+                f.write(self.source_code)
+            
+            self.target_dir = 'target'
+            logger.info(f"Source code saved to {target_file}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error setting up target directory: {str(e)}")
+            return False
+    
+    def run_semgrep_scan(self):
+        """Execute Semgrep scan on the target directory"""
+        try:
+            self.update_status("Running Semgrep analysis")
+            
+            # Check if semgrep is available
+            check_cmd = subprocess.run(['semgrep', '--version'], 
+                                     capture_output=True, text=True)
+            if check_cmd.returncode != 0:
+                raise Exception("Semgrep not found. Please install semgrep.")
+            
+            # Run semgrep with built-in rules
+            semgrep_cmd = [
+                'semgrep',
+                '--config=auto',  # Use auto-detection for rules
+                '--json',
+                '--no-git-ignore',
+                self.target_dir
+            ]
+            
+            result = subprocess.run(
+                semgrep_cmd,
+                capture_output=True,
+                text=True,
+                timeout=120  # 2 minute timeout
+            )
+            
+            if result.returncode not in [0, 1]:  # 0 = no findings, 1 = findings found
+                logger.error(f"Semgrep error: {result.stderr}")
+                raise Exception(f"Semgrep scan failed: {result.stderr}")
+            
+            return result.stdout
+            
+        except subprocess.TimeoutExpired:
+            raise Exception("Semgrep scan timed out")
+        except Exception as e:
+            logger.error(f"Error running Semgrep: {str(e)}")
+            raise e
+    
+    def parse_semgrep_results(self, semgrep_output):
+        """Parse Semgrep JSON output and extract vulnerabilities"""
+        try:
+            self.update_status("Parsing scan results")
+            
+            if not semgrep_output.strip():
+                logger.info("No Semgrep output to parse")
+                return
+            
+            semgrep_data = json.loads(semgrep_output)
+            
+            if 'results' not in semgrep_data:
+                logger.warning("No results found in Semgrep output")
+                return
+            
+            for finding in semgrep_data['results']:
+                # Map Semgrep severity to our severity levels
+                severity_map = {
+                    'ERROR': 'High',
+                    'WARNING': 'Medium',
+                    'INFO': 'Low'
+                }
+                
+                severity = severity_map.get(
+                    finding.get('extra', {}).get('severity', 'INFO'), 
+                    'Medium'
+                )
+                
+                # Extract line information
+                line_info = {
+                    'start_line': finding.get('start', {}).get('line'),
+                    'end_line': finding.get('end', {}).get('line'),
+                    'start_col': finding.get('start', {}).get('col'),
+                    'end_col': finding.get('end', {}).get('col')
+                }
+                
+                # Extract metadata
+                metadata = finding.get('extra', {}).get('metadata', {})
+                
+                self.log_vulnerability(
+                    check_id=finding.get('check_id', 'unknown'),
+                    severity=severity,
+                    message=finding.get('extra', {}).get('message', 'Security issue detected'),
+                    metadata=metadata,
+                    file_path=finding.get('path', 'main.js'),
+                    line_info=line_info
+                )
+            
+            # Log any errors from Semgrep
+            if 'errors' in semgrep_data and semgrep_data['errors']:
+                for error in semgrep_data['errors']:
+                    logger.warning(f"Semgrep error: {error.get('message', 'Unknown error')}")
+                    
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse Semgrep JSON output: {str(e)}")
+            raise Exception("Invalid JSON output from Semgrep")
+        except Exception as e:
+            logger.error(f"Error parsing Semgrep results: {str(e)}")
+            raise e
+    
+    def cleanup(self):
+        """Clean up temporary files"""
+        try:
+            if self.target_dir and os.path.exists(self.target_dir):
+                # Only remove the specific file we created
+                target_file = os.path.join(self.target_dir, 'main.js')
+                if os.path.exists(target_file):
+                    os.remove(target_file)
+                    logger.info(f"Cleaned up {target_file}")
+        except Exception as e:
+            logger.warning(f"Error during cleanup: {str(e)}")
+    
+    def run_scan(self):
+        """Execute complete SAST scan"""
+        try:
+            # Setup target directory and save code
+            if not self.setup_target_directory():
+                self.scan_status = 'failed'
+                return self._generate_report()
+            
+            # Run Semgrep scan
+            semgrep_output = self.run_semgrep_scan()
+            
+            # Parse results
+            self.parse_semgrep_results(semgrep_output)
+            
+            self.scan_status = 'completed'
+            self.update_status("Scan completed")
+            
+        except Exception as e:
+            logger.error(f"SAST scan failed: {str(e)}")
+            self.scan_status = 'failed'
+            # Add error as a vulnerability for reporting
+            self.log_vulnerability(
+                check_id='scan_error',
+                severity='High',
+                message=f"Scan failed: {str(e)}",
+                metadata={'error_type': 'scan_failure'}
+            )
+        finally:
+            self.cleanup()
+        
+        return self._generate_report()
+    
+    def _generate_report(self):
+        """Generate SAST scan report"""
+        end_time = datetime.now()
+        duration = (end_time - self.start_time).total_seconds()
+        
+        # Count vulnerabilities by severity
+        severity_counts = {}
+        for vuln in self.vulnerabilities:
+            severity = vuln['severity']
+            severity_counts[severity] = severity_counts.get(severity, 0) + 1
+        
+        # Count vulnerabilities by category
+        category_counts = {}
+        for vuln in self.vulnerabilities:
+            category = vuln.get('metadata', {}).get('category', 'unknown')
+            category_counts[category] = category_counts.get(category, 0) + 1
+        
+        report = {
+            'scan_info': {
+                'scan_id': self.scan_id,
+                'scan_type': 'SAST',
+                'language': self.language,
+                'start_time': self.start_time.isoformat(),
+                'end_time': end_time.isoformat(),
+                'duration_seconds': round(duration, 2),
+                'status': self.scan_status,
+                'lines_of_code': len(self.source_code.splitlines())
+            },
+            'summary': {
+                'total_vulnerabilities': len(self.vulnerabilities),
+                'severity_breakdown': severity_counts,
+                'category_breakdown': category_counts,
+                'risk_score': self._calculate_risk_score()
+            },
+            'vulnerabilities': self.vulnerabilities,
+            'recommendations': [
+                "Fix all High and Critical severity vulnerabilities immediately",
+                "Implement input validation and output encoding",
+                "Use secure coding practices and frameworks",
+                "Regular code reviews and security testing",
+                "Keep dependencies updated to latest secure versions",
+                "Implement proper error handling and logging"
+            ]
+        }
+        
+        return report
+    
+    def _calculate_risk_score(self):
+        """Calculate risk score based on vulnerabilities"""
+        score_map = {'Critical': 10, 'High': 8, 'Medium': 5, 'Low': 2}
+        total_score = sum(score_map.get(v['severity'], 0) for v in self.vulnerabilities)
+        return min(total_score, 100)
 # Flask API Routes
 
 @app.route('/health', methods=['GET'])
@@ -739,6 +995,161 @@ def list_scans():
             'status': 'error'
         }), 500
 
+@app.route('/sast/scan', methods=['POST'])
+def start_sast_scan():
+    """Start a new SAST scan"""
+    try:
+        data = request.get_json()
+        
+        if not data or 'code' not in data:
+            return jsonify({
+                'error': 'Missing required parameter: code',
+                'status': 'error'
+            }), 400
+        
+        source_code = data['code']
+        language = data.get('language', 'javascript')
+        
+        if not source_code.strip():
+            return jsonify({
+                'error': 'Source code cannot be empty',
+                'status': 'error'
+            }), 400
+        
+        # Generate scan ID
+        scan_id = str(uuid.uuid4())
+        
+        # Initialize scan tracking
+        active_sast_scans[scan_id] = {
+            'language': language,
+            'status': 'starting',
+            'start_time': datetime.now().isoformat(),
+            'current_step': 'Initializing',
+            'vulnerabilities_found': 0,
+            'lines_of_code': len(source_code.splitlines())
+        }
+        
+        # Start scan in background thread
+        def run_background_sast_scan():
+            scanner = SASTScanner(source_code, scan_id, language)
+            result = scanner.run_scan()
+            sast_results[scan_id] = result
+            if scan_id in active_sast_scans:
+                del active_sast_scans[scan_id]
+        
+        thread = threading.Thread(target=run_background_sast_scan)
+        thread.daemon = True
+        thread.start()
+        
+        return jsonify({
+            'scan_id': scan_id,
+            'status': 'started',
+            'message': 'SAST scan initiated successfully',
+            'language': language,
+            'lines_of_code': len(source_code.splitlines())
+        })
+        
+    except Exception as e:
+        logger.error(f"Error starting SAST scan: {str(e)}")
+        return jsonify({
+            'error': 'Internal server error',
+            'status': 'error'
+        }), 500
+
+@app.route('/sast/scan/<scan_id>/status', methods=['GET'])
+def get_sast_scan_status(scan_id):
+    """Get the status of a running SAST scan"""
+    try:
+        # Check if scan is completed
+        if scan_id in sast_results:
+            return jsonify({
+                'scan_id': scan_id,
+                'status': 'completed',
+                'result_available': True
+            })
+        
+        # Check if scan is active
+        if scan_id in active_sast_scans:
+            scan_info = active_sast_scans[scan_id]
+            return jsonify({
+                'scan_id': scan_id,
+                'status': scan_info['status'],
+                'current_step': scan_info['current_step'],
+                'vulnerabilities_found': scan_info['vulnerabilities_found'],
+                'start_time': scan_info['start_time'],
+                'lines_of_code': scan_info['lines_of_code']
+            })
+        
+        return jsonify({
+            'error': 'SAST scan not found',
+            'status': 'error'
+        }), 404
+        
+    except Exception as e:
+        logger.error(f"Error getting SAST scan status: {str(e)}")
+        return jsonify({
+            'error': 'Internal server error',
+            'status': 'error'
+        }), 500
+
+@app.route('/sast/scan/<scan_id>/result', methods=['GET'])
+def get_sast_scan_result(scan_id):
+    """Get the results of a completed SAST scan"""
+    try:
+        if scan_id not in sast_results:
+            return jsonify({
+                'error': 'SAST scan results not found or scan still in progress',
+                'status': 'error'
+            }), 404
+        
+        return jsonify(sast_results[scan_id])
+        
+    except Exception as e:
+        logger.error(f"Error getting SAST scan result: {str(e)}")
+        return jsonify({
+            'error': 'Internal server error',
+            'status': 'error'
+        }), 500
+
+@app.route('/sast/scans', methods=['GET'])
+def list_sast_scans():
+    """List all active and completed SAST scans"""
+    try:
+        all_scans = []
+        
+        # Add active scans
+        for scan_id, scan_info in active_sast_scans.items():
+            all_scans.append({
+                'scan_id': scan_id,
+                'language': scan_info['language'],
+                'status': scan_info['status'],
+                'start_time': scan_info['start_time'],
+                'lines_of_code': scan_info['lines_of_code']
+            })
+        
+        # Add completed scans
+        for scan_id, result in sast_results.items():
+            all_scans.append({
+                'scan_id': scan_id,
+                'language': result['scan_info']['language'],
+                'status': 'completed',
+                'start_time': result['scan_info']['start_time'],
+                'vulnerabilities_found': result['summary']['total_vulnerabilities'],
+                'lines_of_code': result['scan_info']['lines_of_code']
+            })
+        
+        return jsonify({
+            'scans': all_scans,
+            'total': len(all_scans)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error listing SAST scans: {str(e)}")
+        return jsonify({
+            'error': 'Internal server error',
+            'status': 'error'
+        }), 500    
+
 @app.errorhandler(404)
 def not_found(error):
     return jsonify({
@@ -761,6 +1172,24 @@ if __name__ == '__main__':
     print("  GET /scan/<scan_id>/result - Get scan results")
     print("  GET /scans - List all scans")
     print("  GET /health - Health check")
+    print("Starting DAST/SAST Scanner API Server...")
+    print("Available endpoints:")
+    print("  DAST:")
+    print("    POST /scan - Start a new vulnerability scan")
+    print("    GET /scan/<scan_id>/status - Get scan status")
+    print("    GET /scan/<scan_id>/result - Get scan results")
+    print("    GET /scans - List all scans")
+    print("  SAST:")
+    print("    POST /sast/scan - Start a new SAST scan")
+    print("    GET /sast/scan/<scan_id>/status - Get SAST scan status")
+    print("    GET /sast/scan/<scan_id>/result - Get SAST scan results")
+    print("    GET /sast/scans - List all SAST scans")
+    print("  General:")
+    print("    GET /health - Health check")
+    
+    # Ensure target directory exists
+    if not os.path.exists('target'):
+        os.makedirs('target')
     
     # Run Flask app
     app.run(host='0.0.0.0', port=5000, debug=False)
