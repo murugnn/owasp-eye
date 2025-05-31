@@ -87,6 +87,17 @@ OWASP Eye is a lightweight, browser-accessible vulnerability scanner designed to
     semgrep --config=rules/ target/
 ```
 
+## Usage on web
+
+```bash
+  pip install -r requirements.txt
+  python server.py
+```
+```bash
+  npm install --legacy-peer-deps
+  npm run dev
+```
+
 ## 🧪 Testing and Validation
 
 - Functional prototype with working snippet scanner
